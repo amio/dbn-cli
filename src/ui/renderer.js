@@ -299,19 +299,21 @@ export class Renderer {
           return truncate(value, colWidths[idx] - 1);
         });
         
-        const prefix = isSelected ? `${COLORS.inverse} ${UI.cursor}` : '  ';
-        let line = prefix + ' ' + cells.map((cell, idx) => pad(cell, colWidths[idx] - 1)).join(' ');
+        // Build content without color codes first
+        const prefix = isSelected ? ` ${UI.cursor}` : '  ';
+        const content = prefix + ' ' + cells.map((cell, idx) => pad(cell, colWidths[idx] - 1)).join(' ');
         
-        if (isSelected) {
-          line += COLORS.reset;
+        // Truncate or pad to exact width
+        let line;
+        if (content.length > width) {
+          line = content.substring(0, width);
+        } else {
+          line = content + ' '.repeat(width - content.length);
         }
         
-        const cleanLine = line.replace(/\x1b\[[0-9;]*m/g, '');
-        
-        if (cleanLine.length < width) {
-          line += ' '.repeat(width - cleanLine.length);
-        } else {
-          line = line.substring(0, width);
+        // Apply color codes after ensuring correct width
+        if (isSelected) {
+          line = COLORS.inverse + line + COLORS.reset;
         }
         
         lines.push(line);
