@@ -42,14 +42,52 @@ export class Renderer {
     
     if (state.type === 'table-detail') {
       title += ` ${COLORS.dim}>${COLORS.reset} ${state.tableName}`;
+    } else if (state.type === 'schema-view') {
+      title += ` ${COLORS.dim}>${COLORS.reset} ${state.tableName} ${COLORS.dim}> schema${COLORS.reset}`;
+    } else if (state.type === 'row-detail') {
+      title += ` ${COLORS.dim}>${COLORS.reset} ${state.tableName} ${COLORS.dim}> row ${state.rowIndex + 1}${COLORS.reset}`;
     }
     
     title = `${COLORS.bold}${title}${COLORS.reset}`;
     
-    // Pad to width
+    // Build right info
+    let rightInfo = '';
+    if (state.type === 'tables') {
+      const totalTables = state.tables.length;
+      const currentPos = state.cursor + 1;
+      rightInfo = `${COLORS.dim}${currentPos}/${totalTables} tables${COLORS.reset}`;
+    } else if (state.type === 'table-detail') {
+      const totalRows = formatNumber(state.totalRows);
+      const currentRow = state.dataOffset + state.dataCursor + 1;
+      rightInfo = `${COLORS.dim}row ${formatNumber(currentRow)}/${totalRows}${COLORS.reset}`;
+    } else if (state.type === 'schema-view') {
+      const totalCols = state.schema.length;
+      const currentPos = state.cursor + 1;
+      rightInfo = `${COLORS.dim}${currentPos}/${totalCols} columns${COLORS.reset}`;
+    } else if (state.type === 'row-detail') {
+      const colCount = state.schema.length;
+      rightInfo = `${COLORS.dim}${colCount} fields${COLORS.reset}`;
+    }
+    
+    // Calculate spacing
     const titleClean = title.replace(/\x1b\[[0-9;]*m/g, '');
-    const padding = width - titleClean.length;
-    return title + ' '.repeat(Math.max(0, padding));
+    const rightInfoClean = rightInfo.replace(/\x1b\[[0-9;]*m/g, '');
+    const availableSpace = width - titleClean.length - rightInfoClean.length;
+    
+    if (availableSpace > 0) {
+      return title + ' '.repeat(availableSpace) + rightInfo;
+    } else {
+      // Not enough space, truncate title
+      const maxTitleWidth = width - rightInfoClean.length - 3; // Reserve space for "..."
+      if (maxTitleWidth > 10) {
+        const truncatedTitle = title.substring(0, maxTitleWidth) + '...';
+        const padding = width - maxTitleWidth - 3 - rightInfoClean.length;
+        return truncatedTitle + ' '.repeat(Math.max(0, padding)) + rightInfo;
+      } else {
+        // Very narrow screen, just show title
+        return title.substring(0, width);
+      }
+    }
   }
 
   /**
@@ -145,13 +183,6 @@ export class Renderer {
     const lines = [];
     const { data, totalRows, dataOffset, dataCursor } = state;
 
-    // === Data Section ===
-    const showingFrom = dataOffset + 1;
-    const showingTo = Math.min(dataOffset + data.length, totalRows);
-    const dataInfo = ` ${COLORS.bold}Data:${COLORS.reset} ${COLORS.dim}(showing ${formatNumber(showingFrom)}-${formatNumber(showingTo)} of ${formatNumber(totalRows)})${COLORS.reset}`;
-    const dataInfoClean = dataInfo.replace(/\x1b\[[0-9;]*m/g, '');
-    lines.push(dataInfo + ' '.repeat(Math.max(0, width - dataInfoClean.length)));
-
     if (data.length === 0) {
       lines.push(pad('No data', width, 'center'));
     } else {
@@ -180,10 +211,10 @@ export class Renderer {
       lines.push(headerLine);
       
       // Update visible rows for navigator (subtract 1 for header)
-      state.visibleRows = height - 2;
+      state.visibleRows = height - 1;
       
       // Render data rows
-      const maxRows = Math.min(data.length, height - 2);
+      const maxRows = Math.min(data.length, height - 1);
       
       for (let i = 0; i < maxRows; i++) {
         const row = data[i];
@@ -306,18 +337,12 @@ export class Renderer {
     const lines = [];
     const { row, schema, tableName, rowIndex } = state;
     
-    // Title
-    const title = ` ${COLORS.bold}Row #${rowIndex + 1}${COLORS.reset} ${COLORS.dim}from ${tableName}${COLORS.reset}`;
-    const titleClean = title.replace(/\x1b\[[0-9;]*m/g, '');
-    lines.push(title + ' '.repeat(Math.max(0, width - titleClean.length)));
-    lines.push(' '.repeat(width));
-    
     // Get max column name length for alignment
     const maxColNameLength = Math.max(...schema.map(col => col.name.length), 10);
     const valueWidth = width - maxColNameLength - 5;
     
     // Display each field
-    let lineCount = 2;
+    let lineCount = 0;
     for (const col of schema) {
       if (lineCount >= height) break;
       

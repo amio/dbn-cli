@@ -153,8 +153,8 @@ export class DBPeek {
         break;
 
       case 's':
-        // View schema in full screen mode
-        this.navigator.viewSchema();
+        // Toggle schema display
+        this.navigator.toggleSchema();
         this.render();
         break;
     }

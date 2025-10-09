@@ -118,6 +118,28 @@ export class Navigator {
   }
 
   /**
+   * Toggle schema display in table detail view
+   */
+  toggleSchema() {
+    const state = this.currentState;
+    if (state.type === 'table-detail') {
+      // Toggle showSchema flag
+      state.showSchema = !state.showSchema;
+    }
+  }
+
+  /**
+   * Toggle schema display in table detail view
+   */
+  toggleSchema() {
+    const state = this.currentState;
+    if (state.type === 'table-detail') {
+      // Toggle showSchema flag
+      state.showSchema = !state.showSchema;
+    }
+  }
+
+  /**
    * View schema in full screen mode
    */
   viewSchema() {
@@ -160,7 +182,8 @@ export class Navigator {
         totalRows: totalRows,
         dataOffset: 0,
         dataCursor: 0,
-        visibleRows: 20 // Will be updated by renderer
+        visibleRows: 20, // Will be updated by renderer
+        showSchema: false // Schema display toggle
       };
       
       this.states.push(newState);
