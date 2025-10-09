@@ -32,6 +32,19 @@ describe('Format Utils', () => {
       assert.strictEqual(truncate(123, 5), '123');
       assert.strictEqual(truncate(12345678, 5), '12...');
     });
+
+    it('should truncate CJK strings correctly by visible width', () => {
+      // 你好世界 = 4 chars, 8 visible width
+      assert.strictEqual(getVisibleWidth(truncate('你好世界', 5)), 5); // Should fit '你...' (2+3=5)
+      assert.strictEqual(getVisibleWidth(truncate('你好世界', 10)), 8); // Should not truncate
+      assert.strictEqual(getVisibleWidth(truncate('Hello你好', 8)), 8); // 'Hello...' = 8 width
+    });
+
+    it('should truncate emoji strings correctly by visible width', () => {
+      // 👋 = 2 visible width
+      assert.strictEqual(getVisibleWidth(truncate('Hello 👋', 6)), 6); // Should fit 'Hel...' = 6 width
+      assert.strictEqual(getVisibleWidth(truncate('👋👋👋', 5)), 5); // Should fit '👋...' (2+3=5)
+    });
   });
 
   describe('pad', () => {
@@ -51,12 +64,39 @@ describe('Format Utils', () => {
     });
 
     it('should truncate if string is longer than length', () => {
-      assert.strictEqual(pad('hello world', 5), 'hello');
+      assert.strictEqual(getVisibleWidth(pad('hello world', 5)), 5);
     });
 
     it('should handle null and undefined', () => {
       assert.strictEqual(pad(null, 5), '     ');
       assert.strictEqual(pad(undefined, 5), '     ');
+    });
+
+    it('should pad CJK strings correctly by visible width', () => {
+      // 你好 = 2 chars, 4 visible width
+      const padded = pad('你好', 10);
+      assert.strictEqual(getVisibleWidth(padded), 10); // Should be 4 + 6 spaces = 10
+      
+      const rightPadded = pad('你好', 10, 'right');
+      assert.strictEqual(getVisibleWidth(rightPadded), 10); // Should be 6 spaces + 4 = 10
+    });
+
+    it('should truncate CJK strings correctly by visible width', () => {
+      // 你好世界 = 4 chars, 8 visible width
+      const truncated = pad('你好世界', 5);
+      assert.strictEqual(getVisibleWidth(truncated), 5); // Should fit up to 5 width
+    });
+
+    it('should pad emoji strings correctly by visible width', () => {
+      // 👋 = 2 visible width
+      const padded = pad('👋', 10);
+      assert.strictEqual(getVisibleWidth(padded), 10); // Should be 2 + 8 spaces = 10
+    });
+
+    it('should truncate emoji strings correctly by visible width', () => {
+      // 👋👋👋 = 6 visible width
+      const truncated = pad('👋👋👋', 5);
+      assert.strictEqual(getVisibleWidth(truncated), 5); // Should fit 2 emoji + 1 space = 5
     });
   });
 
@@ -103,6 +143,29 @@ describe('Format Utils', () => {
 
     it('should handle empty strings', () => {
       assert.strictEqual(getVisibleWidth(''), 0);
+    });
+
+    it('should count CJK characters as double-width', () => {
+      assert.strictEqual(getVisibleWidth('你好'), 4); // 2 Chinese chars = 4 width
+      assert.strictEqual(getVisibleWidth('Hello世界'), 9); // 5 + 2*2 = 9
+      assert.strictEqual(getVisibleWidth('こんにちは'), 10); // 5 Japanese chars = 10 width
+      assert.strictEqual(getVisibleWidth('안녕하세요'), 10); // 5 Korean chars = 10 width
+    });
+
+    it('should count emoji as double-width', () => {
+      assert.strictEqual(getVisibleWidth('👋'), 2); // Wave emoji = 2 width
+      assert.strictEqual(getVisibleWidth('Hello! 👋'), 9); // 7 + 2 = 9
+      assert.strictEqual(getVisibleWidth('😀😁😂'), 6); // 3 emoji = 6 width
+      assert.strictEqual(getVisibleWidth('Test 🎉 OK'), 10); // 4 + 1 + 2 + 1 + 2 = 10
+    });
+
+    it('should handle mixed content with CJK and ANSI codes', () => {
+      assert.strictEqual(getVisibleWidth('\x1b[1m你好\x1b[0m'), 4);
+      assert.strictEqual(getVisibleWidth('Test测试'), 8); // 4 + 2*2 = 8
+    });
+
+    it('should handle mixed emoji, CJK, and ASCII', () => {
+      assert.strictEqual(getVisibleWidth('Hello 你好 👋'), 13); // 5 + 1 + 4 + 1 + 2 = 13
     });
   });
 });

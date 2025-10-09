@@ -1,5 +1,5 @@
 import { COLORS, BORDERS, UI } from './theme.js';
-import { formatNumber, truncate, pad, formatValue } from '../utils/format.js';
+import { formatNumber, truncate, pad, formatValue, getVisibleWidth } from '../utils/format.js';
 
 /**
  * Renderer for ncdu-style TUI
@@ -69,23 +69,24 @@ export class Renderer {
       rightInfo = `${COLORS.dim}${colCount} fields${COLORS.reset}`;
     }
     
-    // Calculate spacing
-    const titleClean = title.replace(/\x1b\[[0-9;]*m/g, '');
-    const rightInfoClean = rightInfo.replace(/\x1b\[[0-9;]*m/g, '');
-    const availableSpace = width - titleClean.length - rightInfoClean.length;
+    // Calculate spacing using visible width (accounts for CJK double-width)
+    const titleWidth = getVisibleWidth(title);
+    const rightInfoWidth = getVisibleWidth(rightInfo);
+    const availableSpace = width - titleWidth - rightInfoWidth;
     
     if (availableSpace > 0) {
       return title + ' '.repeat(availableSpace) + rightInfo;
     } else {
       // Not enough space, truncate title
-      const maxTitleWidth = width - rightInfoClean.length - 3; // Reserve space for "..."
+      const maxTitleWidth = width - rightInfoWidth - 3; // Reserve space for "..."
       if (maxTitleWidth > 10) {
-        const truncatedTitle = title.substring(0, maxTitleWidth) + '...';
-        const padding = width - maxTitleWidth - 3 - rightInfoClean.length;
-        return truncatedTitle + ' '.repeat(Math.max(0, padding)) + rightInfo;
+        const truncatedTitle = truncate(title.replace(/\x1b\[[0-9;]*m/g, ''), maxTitleWidth);
+        const truncatedWidth = getVisibleWidth(truncatedTitle);
+        const padding = width - truncatedWidth - rightInfoWidth;
+        return `${COLORS.bold}${truncatedTitle}${COLORS.reset}` + ' '.repeat(Math.max(0, padding)) + rightInfo;
       } else {
         // Very narrow screen, just show title
-        return title.substring(0, width);
+        return truncate(title.replace(/\x1b\[[0-9;]*m/g, ''), width);
       }
     }
   }
@@ -143,26 +144,29 @@ export class Renderer {
       const table = tables[i];
       const isSelected = i === cursor;
       
-      // Build line: "> table_name                    1,234 rows"
-      const prefix = isSelected ? `${COLORS.inverse} ${UI.cursor}` : '  ';
+      // Build line without color codes first
+      const cursorChar = isSelected ? ` ${UI.cursor}` : '  ';
       const maxNameWidth = width - 20; // Reserve space for row count
       const name = truncate(table.name, maxNameWidth - 5);
       const namePadded = pad(name, maxNameWidth - 3);
       const count = formatNumber(table.row_count) + ' rows';
       const countPadded = pad(count, 15, 'right');
       
-      let line = `${prefix} ${namePadded} ${countPadded}`;
+      let content = `${cursorChar} ${namePadded} ${countPadded}`;
       
-      if (isSelected) {
-        line += COLORS.reset;
+      // Ensure exact width before adding color codes
+      if (content.length > width) {
+        content = content.substring(0, width);
+      } else if (content.length < width) {
+        content += ' '.repeat(width - content.length);
       }
       
-      // Ensure line doesn't exceed width
-      const cleanLine = line.replace(/\x1b\[[0-9;]*m/g, '');
-      if (cleanLine.length > width) {
-        line = line.substring(0, width);
-      } else if (cleanLine.length < width) {
-        line += ' '.repeat(width - cleanLine.length);
+      // Apply color codes to properly sized line
+      let line;
+      if (isSelected) {
+        line = COLORS.inverse + content + COLORS.reset;
+      } else {
+        line = content;
       }
       
       lines.push(line);
@@ -274,12 +278,14 @@ export class Renderer {
       });
       
       let headerLine = `  ${COLORS.dim} ${headerCells.join(' ')}${COLORS.reset}`;
-      const headerClean = headerLine.replace(/\x1b\[[0-9;]*m/g, '');
+      const headerWidth = getVisibleWidth(headerLine);
       
-      if (headerClean.length < width) {
-        headerLine += ' '.repeat(width - headerClean.length);
-      } else {
-        headerLine = headerLine.substring(0, width);
+      if (headerWidth < width) {
+        headerLine += ' '.repeat(width - headerWidth);
+      } else if (headerWidth > width) {
+        // Truncate if somehow too wide
+        const plainHeader = `   ${headerCells.map(c => c.replace(/\x1b\[[0-9;]*m/g, '')).join(' ')}`;
+        headerLine = truncate(plainHeader, width);
       }
       
       lines.push(headerLine);
@@ -301,19 +307,24 @@ export class Renderer {
         
         // Build content without color codes first
         const prefix = isSelected ? ` ${UI.cursor}` : '  ';
-        const content = prefix + ' ' + cells.map((cell, idx) => pad(cell, colWidths[idx] - 1)).join(' ');
+        const contentWithoutPrefix = cells.map((cell, idx) => pad(cell, colWidths[idx] - 1)).join(' ');
         
-        // Truncate or pad to exact width
-        let line;
-        if (content.length > width) {
-          line = content.substring(0, width);
-        } else {
-          line = content + ' '.repeat(width - content.length);
+        // Ensure exact width before adding color codes (using visible width for CJK)
+        let content = prefix + ' ' + contentWithoutPrefix;
+        const contentWidth = getVisibleWidth(content);
+        
+        if (contentWidth > width) {
+          content = truncate(content, width);
+        } else if (contentWidth < width) {
+          content = content + ' '.repeat(width - contentWidth);
         }
         
-        // Apply color codes after ensuring correct width
+        // Apply color codes to properly sized line
+        let line;
         if (isSelected) {
-          line = COLORS.inverse + line + COLORS.reset;
+          line = COLORS.inverse + content + COLORS.reset;
+        } else {
+          line = content;
         }
         
         lines.push(line);
@@ -374,19 +385,29 @@ export class Renderer {
       if (col.dflt_value !== null) attrs.push(`DEFAULT ${col.dflt_value}`);
       const attrStr = attrs.length > 0 ? truncate(attrs.join(', '), attrWidth) : '';
       
-      const prefix = isSelected ? `${COLORS.inverse} ${UI.cursor}` : '  ';
-      let line = `${prefix} ${name} ${COLORS.cyan}${type}${COLORS.reset} ${COLORS.dim}${attrStr}${COLORS.reset}`;
+      // Build content without selection color first
+      const cursorChar = isSelected ? ` ${UI.cursor}` : '  ';
+      const content = `${cursorChar} ${name} ${COLORS.cyan}${type}${COLORS.reset} ${COLORS.dim}${attrStr}${COLORS.reset}`;
       
-      if (isSelected) {
-        line += COLORS.reset;
+      // Calculate visible width (accounting for CJK and ANSI codes)
+      const contentWidth = getVisibleWidth(content);
+      
+      // Build line with exact width
+      let line;
+      if (contentWidth < width) {
+        line = content + ' '.repeat(width - contentWidth);
+      } else if (contentWidth > width) {
+        // Need to truncate - build without colors first
+        const basicContent = `${cursorChar} ${name} ${type} ${attrStr}`;
+        const truncatedBasic = truncate(basicContent, width);
+        line = truncatedBasic;
+      } else {
+        line = content;
       }
       
-      const cleanLine = line.replace(/\x1b\[[0-9;]*m/g, '');
-      
-      if (cleanLine.length < width) {
-        line += ' '.repeat(width - cleanLine.length);
-      } else {
-        line = line.substring(0, width);
+      // Apply inverse color for selected row (wraps entire line)
+      if (isSelected) {
+        line = COLORS.inverse + line + COLORS.reset;
       }
       
       lines.push(line);
