@@ -188,18 +188,92 @@ export class Renderer {
     } else {
       // Get column names
       const columns = Object.keys(data[0]);
-      const colWidth = Math.floor((width - 4) / Math.min(columns.length, 6));
       
-      // Show up to 6 columns
-      const visibleColumns = columns.slice(0, 6);
+      // Calculate optimal column widths based on content
+      const minColWidth = 8;
+      const maxColWidth = 50; // Maximum width for any single column
+      const maxVisibleCols = 8;
+      const visibleColumns = columns.slice(0, maxVisibleCols);
+      const availableWidth = width - 4; // Reserve space for padding and cursor
+      const spacingWidth = visibleColumns.length - 1; // Space between columns
+      const usableWidth = availableWidth - spacingWidth;
       
-      // Render table header
-      const headerCells = visibleColumns.map(col => {
-        const truncatedCol = truncate(col, colWidth - 1);
-        return pad(truncatedCol, colWidth - 1);
+      // Calculate ideal width for each column based on content
+      const idealWidths = visibleColumns.map(col => {
+        // Check column name length
+        let maxWidth = col.length;
+        
+        // Check data values length (sample first few rows for performance)
+        const sampleSize = Math.min(data.length, 20);
+        for (let i = 0; i < sampleSize; i++) {
+          const value = formatValue(data[i][col]);
+          maxWidth = Math.max(maxWidth, value.length);
+        }
+        
+        // Apply constraints: add 2 for padding, cap at maxColWidth
+        return Math.max(minColWidth, Math.min(maxWidth + 2, maxColWidth));
       });
       
-      let headerLine = `  ${COLORS.bold}${COLORS.underline} ${headerCells.join(' ')}${COLORS.reset}`;
+      // Calculate total ideal width
+      let totalIdealWidth = idealWidths.reduce((sum, w) => sum + w, 0);
+      
+      // Allocate widths
+      const colWidths = [];
+      
+      if (totalIdealWidth <= usableWidth) {
+        // We have extra space - distribute it intelligently
+        const extraSpace = usableWidth - totalIdealWidth;
+        
+        // Find columns that could use more space (those at maxColWidth)
+        const expandableIndices = idealWidths
+          .map((w, i) => ({ width: w, index: i }))
+          .filter(item => item.width === maxColWidth)
+          .map(item => item.index);
+        
+        // Distribute extra space only to expandable columns
+        if (expandableIndices.length > 0) {
+          const extraPerCol = Math.floor(extraSpace / expandableIndices.length);
+          for (let i = 0; i < visibleColumns.length; i++) {
+            if (expandableIndices.includes(i)) {
+              colWidths[i] = idealWidths[i] + extraPerCol;
+            } else {
+              colWidths[i] = idealWidths[i];
+            }
+          }
+          // Add remainder to last expandable column
+          const remainder = extraSpace - (extraPerCol * expandableIndices.length);
+          colWidths[expandableIndices[expandableIndices.length - 1]] += remainder;
+        } else {
+          // No expandable columns, distribute evenly to all
+          const extraPerCol = Math.floor(extraSpace / visibleColumns.length);
+          for (let i = 0; i < visibleColumns.length; i++) {
+            colWidths[i] = idealWidths[i] + extraPerCol;
+          }
+          const remainder = extraSpace - (extraPerCol * visibleColumns.length);
+          colWidths[colWidths.length - 1] += remainder;
+        }
+      } else {
+        // Need to scale down - use proportional scaling
+        const scale = usableWidth / totalIdealWidth;
+        for (let i = 0; i < visibleColumns.length; i++) {
+          colWidths[i] = Math.max(minColWidth, Math.floor(idealWidths[i] * scale));
+        }
+        
+        // Adjust to fill exact width
+        const totalWidth = colWidths.reduce((sum, w) => sum + w, 0);
+        const diff = usableWidth - totalWidth;
+        if (diff !== 0) {
+          colWidths[colWidths.length - 1] += diff;
+        }
+      }
+      
+      // Render table header
+      const headerCells = visibleColumns.map((col, idx) => {
+        const truncatedCol = truncate(col, colWidths[idx] - 1);
+        return pad(truncatedCol, colWidths[idx] - 1);
+      });
+      
+      let headerLine = `  ${COLORS.dim} ${headerCells.join(' ')}${COLORS.reset}`;
       const headerClean = headerLine.replace(/\x1b\[[0-9;]*m/g, '');
       
       if (headerClean.length < width) {
@@ -220,13 +294,13 @@ export class Renderer {
         const row = data[i];
         const isSelected = i === dataCursor;
         
-        const cells = visibleColumns.map(col => {
+        const cells = visibleColumns.map((col, idx) => {
           const value = formatValue(row[col]);
-          return truncate(value, colWidth - 1);
+          return truncate(value, colWidths[idx] - 1);
         });
         
         const prefix = isSelected ? `${COLORS.inverse} ${UI.cursor}` : '  ';
-        let line = prefix + ' ' + cells.map(cell => pad(cell, colWidth - 1)).join(' ');
+        let line = prefix + ' ' + cells.map((cell, idx) => pad(cell, colWidths[idx] - 1)).join(' ');
         
         if (isSelected) {
           line += COLORS.reset;

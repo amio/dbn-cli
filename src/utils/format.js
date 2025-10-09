@@ -58,7 +58,14 @@ export function formatValue(value) {
   if (value === undefined) return '';
   if (typeof value === 'boolean') return value ? 'true' : 'false';
   if (typeof value === 'object') return JSON.stringify(value);
-  return String(value);
+
+  // Convert to string, remove control characters, collapse whitespace, and trim
+  const str = String(value)
+    .replace(/[\n\r\t\v\f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return str;
 }
 
 /**
