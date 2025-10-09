@@ -430,52 +430,27 @@ export class Renderer {
     
     // Get max column name length for alignment
     const maxColNameLength = Math.max(...schema.map(col => col.name.length), 10);
-    const valueWidth = width - maxColNameLength - 5;
+    const rightMargin = 2; // Right side margin
+    const valueWidth = width - maxColNameLength - 5 - rightMargin;
     
-    // Display each field
+    // Display each field (one line per field)
     let lineCount = 0;
     for (const col of schema) {
       if (lineCount >= height) break;
       
       const colName = `${COLORS.cyan}${pad(col.name, maxColNameLength)}${COLORS.reset}`;
-      const colNameClean = col.name;
       const value = formatValue(row[col.name]);
       
-      // Handle multi-line values
-      if (value.length > valueWidth) {
-        // Split into multiple lines
-        const chunks = [];
-        for (let i = 0; i < value.length; i += valueWidth) {
-          chunks.push(value.substring(i, i + valueWidth));
-        }
-        
-        // First line with column name
-        let line = `  ${colName} ${COLORS.dim}:${COLORS.reset} ${chunks[0]}`;
-        const cleanLine = line.replace(/\x1b\[[0-9;]*m/g, '');
-        if (cleanLine.length < width) {
-          line += ' '.repeat(width - cleanLine.length);
-        }
-        lines.push(line);
-        lineCount++;
-        
-        // Additional lines (indented)
-        for (let i = 1; i < chunks.length && lineCount < height; i++) {
-          let continueLine = ' '.repeat(maxColNameLength + 5) + chunks[i];
-          if (continueLine.length < width) {
-            continueLine += ' '.repeat(width - continueLine.length);
-          }
-          lines.push(continueLine);
-          lineCount++;
-        }
-      } else {
-        let line = `  ${colName} ${COLORS.dim}:${COLORS.reset} ${value}`;
-        const cleanLine = line.replace(/\x1b\[[0-9;]*m/g, '');
-        if (cleanLine.length < width) {
-          line += ' '.repeat(width - cleanLine.length);
-        }
-        lines.push(line);
-        lineCount++;
+      // Truncate value to fit in single line
+      const truncatedValue = truncate(value, valueWidth);
+      
+      let line = `  ${colName} ${COLORS.dim}:${COLORS.reset} ${truncatedValue}`;
+      const lineWidth = getVisibleWidth(line);
+      if (lineWidth < width - rightMargin) {
+        line += ' '.repeat(width - rightMargin - lineWidth);
       }
+      lines.push(line);
+      lineCount++;
     }
     
     // Fill remaining lines
