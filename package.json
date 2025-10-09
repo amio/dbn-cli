@@ -1,0 +1,32 @@
+{
+  "name": "dbpeek",
+  "version": "0.2.0",
+  "description": "A lightweight terminal-based database browser",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "dbp": "./bin/dbp.js"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js test/test.js",
+    "test:watch": "node --test --watch test/*.test.js test/test.js",
+    "test:coverage": "node --test --experimental-test-coverage test/*.test.js test/test.js",
+    "test:stats": "node scripts/test-stats.js",
+    "dev": "node bin/dbp.js"
+  },
+  "keywords": [
+    "database",
+    "sqlite",
+    "cli",
+    "terminal",
+    "browser",
+    "tui"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
