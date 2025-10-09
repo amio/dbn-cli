@@ -4,11 +4,11 @@ A lightweight terminal-based SQLite database browser with an ncdu-style interfac
 
 ## Features
 
-- 🚀 **Zero dependencies** - Uses Node.js 22+ built-in `node:sqlite`
-- 📊 **Full-screen TUI** - ncdu-inspired keyboard navigation
-- ⚡ **Fast** - Native SQLite performance
-- 🔍 **Browse tables** - View schema and data with pagination
-- 🎯 **Simple** - Intuitive keyboard shortcuts
+- **Zero dependencies** - Uses Node.js 22+ built-in `node:sqlite`
+- **Full-screen TUI** - ncdu-inspired keyboard navigation
+- **Fast** - Native SQLite performance
+- **Browse tables** - View schema and data with pagination
+- **Simple** - Intuitive keyboard shortcuts
 
 ## Requirements
 
@@ -53,11 +53,19 @@ dbp ./mydatabase.db
 - `j` / `↓` - Move to next row
 - `k` / `↑` - Move to previous row
 - `Enter` / `l` - View selected row details
-- `s` - Toggle schema visibility
+- `s` - Toggle full-screen schema view
 - `h` / `Esc` - Back to tables list
 - `g` - Jump to top
 - `G` - Jump to bottom
 - `r` - Reload data
+- `q` - Quit
+
+### Schema View (Full-screen)
+- `j` / `↓` - Move down
+- `k` / `↑` - Move up
+- `g` - Jump to top
+- `G` - Jump to bottom
+- `s` / `h` / `Esc` - Back to table detail view
 - `q` - Quit
 
 ### Row Detail View
@@ -111,8 +119,6 @@ npm run test:watch
 # Run tests with coverage
 npm run test:coverage
 ```
-
-See [TESTING.md](./TESTING.md) for detailed testing documentation.
 
 ## License
 

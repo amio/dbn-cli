@@ -259,12 +259,6 @@ export class Renderer {
     const lines = [];
     const { schema, cursor, scrollOffset } = state;
 
-    // Header
-    const header = ` ${COLORS.bold}Table Schema${COLORS.reset} ${COLORS.dim}(${schema.length} columns)${COLORS.reset}`;
-    const headerClean = header.replace(/\x1b\[[0-9;]*m/g, '');
-    lines.push(header + ' '.repeat(Math.max(0, width - headerClean.length)));
-    lines.push(' '.repeat(width));
-
     if (schema.length === 0) {
       lines.push(pad('No schema information', width, 'center'));
       while (lines.length < height) {
@@ -274,7 +268,7 @@ export class Renderer {
     }
 
     // Calculate visible window
-    const contentHeight = height - 2; // Subtract header lines
+    const contentHeight = height; // Use full height
     const halfHeight = Math.floor(contentHeight / 2);
     let startIdx = Math.max(0, cursor - halfHeight);
     let endIdx = Math.min(schema.length, startIdx + contentHeight);
@@ -404,9 +398,9 @@ export class Renderer {
     if (state.type === 'tables') {
       help = ' [j/k] select  [Enter/l] open  [g/G] top/bottom  [q] quit';
     } else if (state.type === 'table-detail') {
-      help = ' [j/k] scroll  [Enter/l] view row  [s] view schema  [h/Esc] back  [q] quit';
+      help = ' [j/k] scroll  [Enter/l] view row  [s] toggle schema  [h/Esc] back  [q] quit';
     } else if (state.type === 'schema-view') {
-      help = ' [j/k] scroll  [g/G] top/bottom  [h/Esc] back  [q] quit';
+      help = ' [j/k] scroll  [g/G] top/bottom  [s/h/Esc] back  [q] quit';
     } else if (state.type === 'row-detail') {
       help = ' [h/Esc] back  [q] quit';
     }

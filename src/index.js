@@ -153,9 +153,15 @@ export class DBPeek {
         break;
 
       case 's':
-        // Toggle schema display
-        this.navigator.toggleSchema();
-        this.render();
+        // Toggle schema view in full screen mode
+        const currentState = this.navigator.getState();
+        if (currentState.type === 'table-detail') {
+          this.navigator.viewSchema();
+          this.render();
+        } else if (currentState.type === 'schema-view') {
+          this.navigator.back();
+          this.render();
+        }
         break;
     }
   }
