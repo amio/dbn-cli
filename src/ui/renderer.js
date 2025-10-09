@@ -22,10 +22,9 @@ export class Renderer {
     lines.push(this.buildTitleBar(state, dbPath, width));
     lines.push(this.buildSeparator(width));
     
-    const contentLines = this.buildContent(state, height - 4, width);
+    const contentLines = this.buildContent(state, height - 3, width);
     lines.push(...contentLines);
     
-    lines.push(this.buildSeparator(width));
     lines.push(this.buildHelpBar(state, width));
 
     // Clear and render
@@ -95,7 +94,7 @@ export class Renderer {
    * Build separator line
    */
   buildSeparator(width) {
-    return BORDERS.horizontal.repeat(width);
+    return `${COLORS.dim}${BORDERS.horizontal.repeat(width)}${COLORS.reset}`;
   }
 
   /**
@@ -477,6 +476,7 @@ export class Renderer {
       help = ' [h/Esc] back  [q] quit';
     }
     
-    return pad(help, width);
+    const paddedHelp = pad(help, width);
+    return `${COLORS.dim}${paddedHelp}${COLORS.reset}`;
   }
 }
