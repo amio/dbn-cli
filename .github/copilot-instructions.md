@@ -2,175 +2,113 @@
 
 ## Project Overview
 
-DBPeek is a lightweight terminal-based SQLite database browser with an ncdu-style TUI (Text User Interface). Built for Node.js 24+ using primarily built-in modules; it uses a small dependency (`string-width`) for accurate Unicode and emoji width handling.
+DBPeek (dbn-cli) is a lightweight terminal-based SQLite database browser with an ncdu-style TUI. The source is written in TypeScript and runs on Node.js 24+ using built-in modules; it keeps third-party deps minimal (currently `string-width`).
 
-## Architecture Pattern: MVC-Style Separation
+## Architecture Pattern: Clear Separation (View / Navigator / Adapter)
 
-The codebase follows a clear separation of concerns:
+The repo layout to look at:
 
 ```
-├── src/index.js          # Main application controller & lifecycle
-├── src/adapter/          # Data layer (adapter pattern for DB abstraction)
-│   ├── base.js          # Interface contract all adapters must implement
-│   └── sqlite.js        # Node.js 22+ built-in DatabaseSync implementation
-├── src/ui/              # View layer (rendering & navigation)
-│   ├── screen.js        # Terminal management (raw mode, resize events)
-│   ├── renderer.js      # All rendering logic (tables, details, schema, rows)
-│   ├── navigator.js     # Navigation state machine (view stack & cursor)
-│   └── theme.js         # ANSI codes & UI constants
-└── src/utils/format.js  # Text formatting utilities
+├── bin/                  # CLI entry (TypeScript with shebang)
+├── src/
+│   ├── index.ts          # Main application controller & lifecycle
+│   ├── adapter/          # Database adapters (extend DatabaseAdapter)
+│   │   ├── base.ts
+│   │   └── sqlite.ts     # node:sqlite DatabaseSync adapter
+│   ├── ui/               # View layer (rendering & navigation)
+│   │   ├── screen.ts
+│   │   ├── renderer.ts
+│   │   ├── navigator.ts
+│   │   └── theme.ts
+│   └── utils/format.ts
+├── test/                 # Tests (TypeScript)
+└── scripts/
 ```
 
 ### Critical Architecture Decisions
 
-1. **Adapter Pattern**: `base.js` defines the contract, making it easy to add PostgreSQL/MySQL adapters later. All database operations go through this interface.
-
-2. **State Stack Navigation**: `navigator.js` maintains a stack of view states (`tables` → `table-detail` → `row-detail`). Pressing 'h/Esc' pops the stack. Never manipulate state directly in renderer.
-
-3. **Renderer is Pure**: `renderer.js` receives state, returns strings. Zero side effects. All state mutations happen in `navigator.js` or `index.js`.
+1. Adapter pattern: `src/adapter/base.ts` defines the contract; all DB access goes through adapters (see `sqlite.ts`).
+2. Navigator maintains a view-stack (e.g. `tables` → `table-detail` → `row-detail`, `schema-view`, `health`) and is the only place that mutates navigation state.
+3. Renderer is pure-ish: it builds strings from state and writes them to `Screen`. Side effects (state changes, DB queries) belong in `Navigator` or `Adapter`.
 
 ## Essential Patterns
 
-### 1. ANSI Code Handling
-When calculating string widths for alignment, **always strip ANSI codes first**:
-```javascript
-const cleanStr = str.replace(/\x1b\[[0-9;]*m/g, '');
-const width = cleanStr.length;
-```
-Forgetting this causes misalignment bugs. See `format.js:getVisibleWidth()`.
+1. ANSI handling: always strip ANSI when measuring visible width. The code uses a regex (see `utils/format.ts:getVisibleWidth`) and `string-width` to handle CJK/emoji.
 
-### 2. Terminal Layout Math
-The screen is divided as:
+2. Terminal layout math: renderer composes lines like this:
+
 - 1 line: Title bar
 - 1 line: Separator
-- N lines: Content (height - 4)
-- 1 line: Separator  
+- N lines: Content (renderer passes `height - 3` as content height)
 - 1 line: Help bar
 
-In `buildTableDetail()`, content space is further divided:
-- 1 line: "Data: (showing X-Y of Z)" info
-- 1 line: Column headers (bold + underline)
-- Remaining: Data rows
+In table-detail the renderer reserves 1 header line, so the navigator should use `state.visibleRows = height - 1` (subtract header) when the table-detail view is rendered.
 
-**Critical**: `state.visibleRows = height - 2` (subtract info line + header line). This tells `navigator.js` how many rows fit on screen for pagination.
+3. Pagination: adapters support offset/limit. Example:
 
-### 3. Pagination Pattern
-Data loading is offset-based:
-```javascript
-this.adapter.getTableData(tableName, { limit: 100, offset: dataOffset });
+```ts
+this.adapter.getTableData(tableName, { limit: 50, offset: dataOffset });
 ```
-When cursor reaches bottom and more data exists, increment `dataOffset` and call `this.reload()`. See `navigator.js:moveDown()`.
 
-### 4. View State Structure
-Each view type has specific state properties:
-- `tables`: `{type, tables, cursor, scrollOffset}`
-- `table-detail`: `{type, tableName, schema, data, totalRows, dataOffset, dataCursor, visibleRows}`
-- `schema-view`: `{type, tableName, schema, cursor, scrollOffset}`
-- `row-detail`: `{type, tableName, row, rowIndex, schema}`
+When cursor reaches the bottom and more rows exist, increment `dataOffset` and reload (see `navigator.ts:moveDown`).
 
-Never add properties not documented in these structures without updating ALL related code.
+4. View state shapes (refer to `src/types.ts`): `tables`, `table-detail`, `schema-view`, `row-detail`, `health` — keep these shapes in sync with navigator/renderer.
 
-## Testing Philosophy
+## Testing
 
-**Zero external test frameworks**. Uses Node.js 22+ built-in test runner:
+Tests are written in TypeScript using Node's built-in test runner:
+
 ```bash
-npm test              # Run all tests
-npm run test:watch    # Watch mode
-npm run test:coverage # Coverage report
+npm test              # runs: node --test --experimental-strip-types test/*.test.ts
+npm run test:watch
+npm run test:coverage
 ```
 
-Test files use `node:test` and `node:assert`:
-```javascript
-import { describe, it, before, after } from 'node:test';
-import assert from 'node:assert';
-```
+Tests use `node:test` and `node:assert`; each test creates and cleans up its own SQLite database (see `test/adapter.test.ts`).
 
-Each test creates its own SQLite database, runs tests, then cleans up. See `test/adapter.test.js` for the pattern.
+## Development & Running
 
-## Development Workflows
+- CLI entry: `bin/dbn.ts` (shebang uses `--experimental-strip-types` so the TypeScript files run directly with Node).
+- Run directly: `node bin/dbn.ts path/to/database.db` or use the `npm run dev` script if configured.
 
-### Running the App
-```bash
-npm run dev path/to/database.db
-# OR
-node bin/dbn.js example.db
-```
+### Creating example DBs
+Use scripts in `scripts/` (e.g. `create-example-db.ts`, `create-unicode-test-db.ts`) to generate test databases.
 
-### Creating Test Databases
-Use `scripts/create-example-db.js` as a template to create databases with various schemas for testing UI edge cases.
+### Debugging TUI
 
-### Debugging TUI Applications
-TUI apps capture stdin/stdout, making debugging tricky:
-1. Use `console.error()` to write to stderr
-2. Redirect stderr to a file: `node bin/dbp.js test.db 2> debug.log`
-3. Or disable raw mode temporarily in `index.js:setupInput()`
+1. Use `console.error()` for debug output (writes to stderr).
+2. Redirect stderr to a file: `node bin/dbn.ts test.db 2> debug.log`.
+3. You can disable raw mode temporarily in `src/index.ts:setupInput()` while debugging.
 
 ## Common Pitfalls
 
-### 1. Header Line Width Miscalculation
-When building header lines with ANSI codes:
-```javascript
-// WRONG: Measures string with ANSI codes
-if (headerLine.length < width) { ... }
-
-// RIGHT: Strip codes first
-const headerClean = headerLine.replace(/\x1b\[[0-9;]*m/g, '');
-if (headerClean.length < width) { ... }
-```
-
-### 2. Forgetting to Update visibleRows
-After modifying layout (adding/removing lines in table detail), update `state.visibleRows` or pagination breaks. The renderer calculates this and navigator reads it.
-
-### 3. SQL Injection in Table Names
-Always use parameterized queries or quote table names:
-```javascript
-// WRONG: Vulnerable to injection
-this.db.prepare(`SELECT * FROM ${tableName}`)
-
-// RIGHT: Quoted identifiers
-this.db.prepare(`SELECT * FROM "${tableName}"`)
-```
-
-### 4. Terminal Width Overflow
-Always pad/truncate lines to exact terminal width:
-```javascript
-if (cleanLine.length < width) {
-  line += ' '.repeat(width - cleanLine.length);
-} else {
-  line = line.substring(0, width);
-}
-```
-Failing to do this causes visual glitches.
+- Header width: always measure visible width (strip ANSI / use `string-width`).
+- Update `state.visibleRows` when layout changes (table-detail uses `height - 1` for visible rows).
+- Quote identifiers or parameterize queries to avoid SQL injection when using dynamic table names.
+- Pad/truncate output to exact terminal width to avoid visual glitches; renderer uses a `safeWidth = width - 1` convention to avoid wrapping.
 
 ## Language & Conventions
 
-- **Language**: English for code, Chinese OK in docs (project has bilingual documentation)
-- **Formatting**: 2-space indentation, no semicolons (existing style)
-- **Exports**: ES modules only (`import/export`), no CommonJS
-- **Error handling**: Throw descriptive errors, catch at application boundaries
-- **Comments**: JSDoc for public methods, inline comments for complex logic
+- Source: TypeScript (ES modules). Keep `import/export` style.
+- Formatting: 2-space indentation. The codebase uses minimal semicolons (follow existing style).
+- Error handling: throw descriptive errors and catch at application boundaries.
 
 ## File Naming & Structure
 
-- `*.js` for all JavaScript (ES modules)
-- `*.test.js` for test files (auto-discovered by test runner)
-- `*.md` for documentation
-- Utility scripts in `scripts/` directory
- - Single entry point: `bin/dbn.js` (shebang for CLI)
+- `*.ts` for all source and test files
+- `*.test.ts` for tests
+- `bin/*.ts` for CLI entry(s) — files run with Node's `--experimental-strip-types` (shebang)
 
 ## When Adding Features
 
-1. **New view type**: Add to `navigator.js` state stack, implement render method in `renderer.js`, add key handlers in `index.js`
-2. **New database adapter**: Extend `base.js`, implement all methods, add to `adapter/` directory
-3. **UI improvements**: All ANSI codes/borders/colors go in `theme.js`, all text formatting in `format.js`
-4. **Tests**: Add to `test/` directory, follow existing patterns, ensure cleanup in `after()` hooks
+1. New view: add state in `navigator.ts`, implement rendering in `renderer.ts`, add key handlers in `src/index.ts`.
+2. New adapter: extend `src/adapter/base.ts`, implement methods, add tests in `test/`.
+3. UI changes: keep colors/borders in `src/ui/theme.ts` and formatting in `src/utils/format.ts`.
+4. Tests: add `*.test.ts`, ensure each test creates/cleans DB resources in `after()` hooks.
 
-## Key Dependencies (All Built-in)
+## Key Dependencies
 
-- `node:sqlite` - DatabaseSync API (Node.js 22.5.0+)
-- `node:process` - stdin/stdout/exit
-- `node:readline` - keypress events via `emitKeypressEvents()`
-- `node:fs` - file existence checks
-- `node:test` - test runner and assertions
+- Node 24+ built-ins: `node:sqlite` (DatabaseSync), `node:test`, `node:readline`, `node:fs`, `node:process`.
+- Runtime dependency: `string-width` (accurate visible width for Unicode / emoji).
 
-This project aims to keep dependencies minimal. It uses `string-width` to ensure accurate terminal layout for Unicode and emoji.
+Keep this document in sync with `src/` when view shapes, key bindings, or layout math change.
