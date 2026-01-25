@@ -1,45 +1,24 @@
-name: Publish to npm
+name: Publish Package
 
 on:
   push:
     tags:
-      - 'v*'
-  workflow_dispatch: {}
+      - 'v*' # Trigger on version tags, e.g., v1.0.0
 
-permissions: {}
+permissions:
+  id-token: write # Required for OIDC
+  contents: read # Allows checking out the repository code
 
 jobs:
   publish:
-    name: Publish package
-    # Use GitHub's lightweight runner (container-based)
-    runs-on: ubuntu-slim
-    timeout-minutes: 15
-
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Use Node.js 24
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run tests
-        run: npm test
-
-      - name: Prepare npm auth
-        if: secrets.NPM_TOKEN != ''
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-
-      - name: Publish package
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          # Ensure package version is set (publishing will fail if same version exists)
-          echo "Publishing package $PWD"
-          npm publish --access public
+          registry-url: 'https://registry.npmjs.org' # Specifies the npm registry
+      - run: npm ci
+      - run: npm run build --if-present
+      - run: npm test
+      - run: npm publish # The npm CLI automatically uses the OIDC token
