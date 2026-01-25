@@ -1,10 +1,10 @@
 # dbn
 
-A zero-dependency terminal SQLite browser with ncdu-style interface.
+A lightweight terminal SQLite browser with an ncdu-style interface.
 
 ## Features
 
-- **Zero dependencies** - Uses Node.js 24+ built-in `node:sqlite`
+- **Minimal dependencies** - Uses Node.js 24+ built-in `node:sqlite` and a small npm dependency `string-width` for correct Unicode/emoji width handling
 - **Full-screen TUI** - ncdu-inspired keyboard navigation
 
 ## Installation

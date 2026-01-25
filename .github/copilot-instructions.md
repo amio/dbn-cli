@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-DBPeek is a **zero-dependency** terminal-based SQLite database browser with an ncdu-style TUI (Text User Interface). Built for Node.js 22+ using only built-in modules (`node:sqlite`, `node:process`, `node:readline`).
+DBPeek is a lightweight terminal-based SQLite database browser with an ncdu-style TUI (Text User Interface). Built for Node.js 24+ using primarily built-in modules; it uses a small dependency (`string-width`) for accurate Unicode and emoji width handling.
 
 ## Architecture Pattern: MVC-Style Separation
 
@@ -173,4 +173,4 @@ Failing to do this causes visual glitches.
 - `node:fs` - file existence checks
 - `node:test` - test runner and assertions
 
-**No npm dependencies**. This is a design constraint for simplicity and security.
+This project aims to keep dependencies minimal. It uses `string-width` to ensure accurate terminal layout for Unicode and emoji.
