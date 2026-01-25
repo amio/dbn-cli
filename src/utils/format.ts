@@ -17,6 +17,8 @@ export function formatNumber(num: number): string {
  * @param maxWidth - Maximum visible width (accounting for double-width chars)
  * @returns Truncated string
  */
+import stringWidth from 'string-width';
+
 export function truncate(str: string, maxWidth: number): string {
   if (!str) return '';
   const s = String(str);
@@ -30,15 +32,13 @@ export function truncate(str: string, maxWidth: number): string {
   const ellipsis = '...';
   const ellipsisWidth = 3; // '...' is 3 single-width chars
   
-  // Use Array.from to properly iterate over code points (handles emoji)
-  for (const char of Array.from(s)) {
-    const charWidth = isDoubleWidth(char) ? 2 : 1;
-    
-    if (width + charWidth + ellipsisWidth > maxWidth) {
-      break;
-    }
-    
-    result += char;
+  // Use grapheme-aware widths using string-width
+  for (const ch of Array.from(s)) {
+    const charWidth = stringWidth(ch);
+
+    if (width + charWidth + ellipsisWidth > maxWidth) break;
+
+    result += ch;
     width += charWidth;
   }
   
@@ -61,14 +61,12 @@ export function pad(str: string, targetWidth: number, align: 'left' | 'right' | 
     let result = '';
     let width = 0;
     
-    // Use Array.from to properly iterate over code points (handles emoji)
+    // Build using string-width for grapheme-aware sizing
     for (const char of Array.from(s)) {
-      const charWidth = isDoubleWidth(char) ? 2 : 1;
-      
-      if (width + charWidth > targetWidth) {
-        break;
-      }
-      
+      const charWidth = stringWidth(char);
+
+      if (width + charWidth > targetWidth) break;
+
       result += char;
       width += charWidth;
     }
@@ -115,44 +113,10 @@ export function formatValue(value: any): string {
  * @param char - Single character or code point
  * @returns True if character is double-width
  */
-function isDoubleWidth(char: string): boolean {
-  const code = char.codePointAt(0);
-  if (!code) return false;
-  
-  return (
-    // CJK Unified Ideographs
-    (code >= 0x4E00 && code <= 0x9FFF) ||
-    // CJK Symbols and Punctuation
-    (code >= 0x3000 && code <= 0x303F) ||
-    // CJK Extension A
-    (code >= 0x3400 && code <= 0x4DBF) ||
-    // CJK Compatibility Ideographs
-    (code >= 0xF900 && code <= 0xFAFF) ||
-    // Fullwidth Latin letters
-    (code >= 0xFF01 && code <= 0xFF60) ||
-    // Fullwidth brackets and symbols
-    (code >= 0xFFE0 && code <= 0xFFE6) ||
-    // Hangul Syllables
-    (code >= 0xAC00 && code <= 0xD7AF) ||
-    // Hiragana and Katakana
-    (code >= 0x3040 && code <= 0x30FF) ||
-    // Emoji and symbols (basic)
-    (code >= 0x1F300 && code <= 0x1F9FF) ||
-    // Miscellaneous Symbols and Pictographs
-    (code >= 0x1F600 && code <= 0x1F64F) ||
-    // Emoticons
-    (code >= 0x1F680 && code <= 0x1F6FF) ||
-    // Transport and Map Symbols
-    (code >= 0x2600 && code <= 0x26FF) ||
-    // Miscellaneous Symbols
-    (code >= 0x2700 && code <= 0x27BF) ||
-    // Dingbats
-    (code >= 0x1F900 && code <= 0x1F9FF) ||
-    // Supplemental Symbols and Pictographs
-    (code >= 0x1FA00 && code <= 0x1FA6F) ||
-    // Extended Pictographs
-    (code >= 0x1FA70 && code <= 0x1FAFF)
-  );
+// Deprecated: custom double-width detection replaced by `string-width`.
+// Keep function stub for backward compatibility if other modules import it.
+function isDoubleWidth(_char: string): boolean {
+  return false; // use string-width instead
 }
 
 /**
@@ -165,13 +129,8 @@ export function getVisibleWidth(str: string): number {
   const cleanStr = str.replace(/\x1b\[[0-9;]*m/g, '');
   
   let width = 0;
-  // Use Array.from to properly iterate over code points (handles emoji)
-  for (const char of Array.from(cleanStr)) {
-    if (isDoubleWidth(char)) {
-      width += 2;
-    } else {
-      width += 1;
-    }
+  for (const ch of Array.from(cleanStr)) {
+    width += stringWidth(ch);
   }
   
   return width;
