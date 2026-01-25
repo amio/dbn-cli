@@ -4,7 +4,7 @@ A lightweight terminal SQLite browser with an ncdu-style interface.
 
 ## Features
 
-- **Minimal dependencies** - Uses Node.js 24+ built-in `node:sqlite` and a small npm dependency `string-width` for correct Unicode/emoji width handling
+- **Minimal dependencies** - Uses Node.js 24+ built-in `node:sqlite` module
 - **Full-screen TUI** - ncdu-inspired keyboard navigation
 
 ## Installation

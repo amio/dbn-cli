@@ -1,10 +1,12 @@
 import { DatabaseSync } from 'node:sqlite';
-import { unlinkSync, existsSync } from 'node:fs';
+import { unlinkSync, existsSync, mkdirSync } from 'node:fs';
 
 // Ensure test asset path and delete existing database file if it exists
 const exampleDbPath = 'test/assets/example.db';
-if (!existsSync('test')) {
-  try { require('node:fs').mkdirSync('test/assets', { recursive: true }); } catch {}
+try {
+  mkdirSync('test/assets', { recursive: true });
+} catch (e) {
+  // ignore
 }
 
 if (existsSync(exampleDbPath)) {
