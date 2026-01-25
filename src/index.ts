@@ -1,5 +1,5 @@
 import { stdin, stdout, exit } from 'node:process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import * as readline from 'node:readline';
 import { SQLiteAdapter } from './adapter/sqlite.ts';
 import { Screen } from './ui/screen.ts';
@@ -227,14 +227,42 @@ export class DBPeek {
  * Main entry point
  */
 export function main(args: string[]): void {
-  const dbPath = args[0];
+  // Simple CLI parsing: support flags (-v/--version, -h/--help)
+  const flags = new Set(args.filter(a => a.startsWith('-')));
+  const dbPath = args.find(a => !a.startsWith('-'));
 
+  const printHelp = () => {
+    stdout.write(`Usage: dbn [options] <path-to-sqlite-db-file>\n\n`);
+    stdout.write(`Options:\n`);
+    stdout.write(`  -h, --help       Show help information\n`);
+    stdout.write(`  -v, --version    Show version\n\n`);
+    stdout.write(`Example:\n`);
+    stdout.write(`  dbn ./mydatabase.db\n`);
+  };
+
+  const printVersion = () => {
+    try {
+      const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version?: string };
+      stdout.write((pkg.version ?? 'unknown') + '\n');
+    } catch {
+      stdout.write('unknown\n');
+    }
+  };
+
+  if (flags.has('-h') || flags.has('--help')) {
+    printHelp();
+    exit(0);
+  }
+
+  if (flags.has('-v') || flags.has('--version')) {
+    printVersion();
+    exit(0);
+  }
+
+  // If no db path provided, show help by default
   if (!dbPath) {
-    console.error('Usage: dbn <path-to-sqlite-db-file>');
-    console.error('');
-    console.error('Example:');
-    console.error('  dbn ./mydatabase.db');
-    exit(1);
+    printHelp();
+    exit(0);
   }
 
   const app = new DBPeek(dbPath);
