@@ -122,6 +122,8 @@ function isDoubleWidth(char: string): boolean {
   return (
     // CJK Unified Ideographs
     (code >= 0x4E00 && code <= 0x9FFF) ||
+    // CJK Symbols and Punctuation
+    (code >= 0x3000 && code <= 0x303F) ||
     // CJK Extension A
     (code >= 0x3400 && code <= 0x4DBF) ||
     // CJK Compatibility Ideographs
