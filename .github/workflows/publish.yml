@@ -1,0 +1,45 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  publish:
+    name: Publish package
+    # Use GitHub's lightweight runner (container-based)
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Prepare npm auth
+        if: secrets.NPM_TOKEN != ''
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
+      - name: Publish package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # Ensure package version is set (publishing will fail if same version exists)
+          echo "Publishing package $PWD"
+          npm publish --access public
