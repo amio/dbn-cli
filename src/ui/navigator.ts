@@ -1,5 +1,5 @@
 import type { DatabaseAdapter } from '../adapter/base.ts';
-import type { ViewState, TablesViewState, TableDetailViewState, SchemaViewState, RowDetailViewState } from '../types.ts';
+import type { ViewState, TablesViewState, TableDetailViewState, SchemaViewState, RowDetailViewState, HealthViewState } from '../types.ts';
 
 /**
  * Navigation state manager
@@ -218,6 +218,23 @@ export class Navigator {
       this.states.pop();
       this.currentState = this.states[this.states.length - 1];
     }
+  }
+
+  /**
+   * View core health overview
+   */
+  viewHealth(): void {
+    const state = this.currentState;
+    if (!state || state.type !== 'tables') return;
+
+    const info = this.adapter.getHealthInfo();
+    const newState: HealthViewState = {
+      type: 'health',
+      info
+    };
+
+    this.states.push(newState);
+    this.currentState = newState;
   }
 
   /**

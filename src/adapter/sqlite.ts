@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { DatabaseAdapter } from './base.ts';
-import type { TableInfo, ColumnSchema, QueryOptions } from '../types.ts';
+import type { TableInfo, ColumnSchema, QueryOptions, HealthInfo } from '../types.ts';
 
 /**
  * SQLite adapter using Node.js 22+ built-in node:sqlite
@@ -96,6 +96,43 @@ export class SQLiteAdapter extends DatabaseAdapter {
     const stmt = this.db.prepare(`SELECT COUNT(*) as count FROM "${tableName}"`);
     const result = stmt.get() as { count: number };
     return result.count;
+  }
+
+  /**
+   * Get core database health info
+   */
+  getHealthInfo(): HealthInfo {
+    if (!this.db) {
+      throw new Error('Database not connected');
+    }
+
+    const singleValue = <T = string>(sql: string): T => {
+      const stmt = this.db!.prepare(sql);
+      const row = stmt.get() as Record<string, any> | undefined;
+      if (!row) return '' as T;
+      const value = Object.values(row)[0];
+      return value as T;
+    };
+
+    return {
+      sqlite_version: singleValue<string>('SELECT sqlite_version()'),
+      journal_mode: singleValue<string>('PRAGMA journal_mode'),
+      synchronous: String(singleValue<number>('PRAGMA synchronous')),
+      locking_mode: singleValue<string>('PRAGMA locking_mode'),
+      page_size: singleValue<number>('PRAGMA page_size'),
+      page_count: singleValue<number>('PRAGMA page_count'),
+      freelist_count: singleValue<number>('PRAGMA freelist_count'),
+      cache_size: singleValue<number>('PRAGMA cache_size'),
+      wal_autocheckpoint: singleValue<number>('PRAGMA wal_autocheckpoint'),
+      auto_vacuum: String(singleValue<number>('PRAGMA auto_vacuum')),
+      user_version: singleValue<number>('PRAGMA user_version'),
+      application_id: singleValue<number>('PRAGMA application_id'),
+      encoding: singleValue<string>('PRAGMA encoding'),
+      foreign_keys: String(singleValue<number>('PRAGMA foreign_keys')),
+      temp_store: String(singleValue<number>('PRAGMA temp_store')),
+      mmap_size: singleValue<number>('PRAGMA mmap_size'),
+      busy_timeout: singleValue<number>('PRAGMA busy_timeout')
+    };
   }
 
   /**

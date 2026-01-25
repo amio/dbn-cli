@@ -1,7 +1,7 @@
 import { COLORS, BORDERS, UI } from './theme.ts';
 import { formatNumber, truncate, pad, formatValue, getVisibleWidth } from '../utils/format.ts';
 import type { Screen } from './screen.ts';
-import type { ViewState, TablesViewState, TableDetailViewState, SchemaViewState, RowDetailViewState } from '../types.ts';
+import type { ViewState, TablesViewState, TableDetailViewState, SchemaViewState, RowDetailViewState, HealthViewState } from '../types.ts';
 
 /**
  * Renderer for ncdu-style TUI
@@ -49,6 +49,8 @@ export class Renderer {
       title += ` ${COLORS.dim}>${COLORS.reset} ${state.tableName} ${COLORS.dim}> schema${COLORS.reset}`;
     } else if (state.type === 'row-detail') {
       title += ` ${COLORS.dim}>${COLORS.reset} ${state.tableName} ${COLORS.dim}> row ${state.rowIndex + 1}${COLORS.reset}`;
+    } else if (state.type === 'health') {
+      title += ` ${COLORS.dim}>${COLORS.reset} health`;
     }
     
     title = `${COLORS.bold}${title}${COLORS.reset}`;
@@ -70,6 +72,8 @@ export class Renderer {
     } else if (state.type === 'row-detail') {
       const colCount = state.schema.length;
       rightInfo = `${COLORS.dim}${colCount} fields${COLORS.reset}`;
+    } else if (state.type === 'health') {
+      rightInfo = `${COLORS.dim}overview${COLORS.reset}`;
     }
     
     // Calculate spacing using visible width (accounts for CJK double-width)
@@ -122,6 +126,8 @@ export class Renderer {
       return this.buildSchemaView(state, height, width);
     } else if (state.type === 'row-detail') {
       return this.buildRowDetail(state, height, width);
+    } else if (state.type === 'health') {
+      return this.buildHealthView(state, height, width);
     }
     return [];
   }
@@ -478,19 +484,83 @@ export class Renderer {
   }
 
   /**
+   * Build health overview view
+   */
+  private buildHealthView(state: HealthViewState, height: number, width: number): string[] {
+    const lines: string[] = [];
+    const { info } = state;
+
+    const title = `${COLORS.bold}Core health overview${COLORS.reset}`;
+    lines.push(pad(title, width));
+
+    const formatBool = (value: string): string => (value === '1' ? 'on' : value === '0' ? 'off' : value);
+    const formatAutoVacuum = (value: string): string => {
+      if (value === '0') return 'none';
+      if (value === '1') return 'full';
+      if (value === '2') return 'incremental';
+      return value;
+    };
+
+    const entries: Array<[string, string]> = [
+      ['SQLite version', info.sqlite_version],
+      ['Journal mode', info.journal_mode],
+      ['Synchronous', info.synchronous],
+      ['Locking mode', info.locking_mode],
+      ['Page size', formatNumber(info.page_size)],
+      ['Page count', formatNumber(info.page_count)],
+      ['Freelist pages', formatNumber(info.freelist_count)],
+      ['Cache size', formatNumber(info.cache_size)],
+      ['WAL autocheckpoint', formatNumber(info.wal_autocheckpoint)],
+      ['Auto vacuum', formatAutoVacuum(info.auto_vacuum)],
+      ['User version', String(info.user_version)],
+      ['Application id', String(info.application_id)],
+      ['Encoding', info.encoding],
+      ['Foreign keys', formatBool(info.foreign_keys)],
+      ['Temp store', info.temp_store],
+      ['Mmap size', formatNumber(info.mmap_size)],
+      ['Busy timeout', `${formatNumber(info.busy_timeout)} ms`]
+    ];
+
+    const labelWidth = Math.min(24, Math.max(...entries.map(([label]) => label.length)) + 1);
+    const contentWidth = width - labelWidth - 4;
+
+    for (const [label, value] of entries) {
+      if (lines.length >= height) break;
+      const labelText = pad(label, labelWidth, 'right');
+      const valueText = truncate(value, contentWidth);
+      const line = ` ${COLORS.cyan}${labelText}${COLORS.reset} ${COLORS.dim}:${COLORS.reset} ${valueText}`;
+      const lineWidth = getVisibleWidth(line);
+      if (lineWidth < width) {
+        lines.push(line + ' '.repeat(width - lineWidth));
+      } else {
+        const basicLine = ` ${labelText} : ${valueText}`;
+        lines.push(truncate(basicLine, width - 1));
+      }
+    }
+
+    while (lines.length < height) {
+      lines.push(' '.repeat(width));
+    }
+
+    return lines;
+  }
+
+  /**
    * Build help bar (bottom line)
    */
   private buildHelpBar(state: ViewState, width: number): string {
     let help = '';
     
     if (state.type === 'tables') {
-      help = ' [j/k] select  [Enter/l] open  [g/G] top/bottom  [q] quit';
+      help = ' [j/k] select  [Enter/l] open  [i] info  [g/G] top/bottom  [q] quit';
     } else if (state.type === 'table-detail') {
       help = ' [j/k] scroll  [Enter/l] view row  [s] toggle schema  [h/Esc] back  [q] quit';
     } else if (state.type === 'schema-view') {
       help = ' [j/k] scroll  [g/G] top/bottom  [s/h/Esc] back  [q] quit';
     } else if (state.type === 'row-detail') {
       help = ' [h/Esc] back  [q] quit';
+    } else if (state.type === 'health') {
+      help = ' [i] back  [h/Esc] back  [q] quit';
     }
     
     const paddedHelp = pad(help, width);

@@ -172,6 +172,17 @@ export class DBPeek {
           this.render();
         }
         break;
+
+      case 'i':
+        // Toggle core health overview
+        const infoState = this.navigator.getState();
+        if (infoState.type === 'health') {
+          this.navigator.back();
+        } else if (infoState.type === 'tables') {
+          this.navigator.viewHealth();
+        }
+        this.render();
+        break;
     }
   }
 

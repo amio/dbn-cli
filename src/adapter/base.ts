@@ -1,4 +1,4 @@
-import type { TableInfo, ColumnSchema, QueryOptions } from '../types.ts';
+import type { TableInfo, ColumnSchema, QueryOptions, HealthInfo } from '../types.ts';
 
 /**
  * Base class for database adapters
@@ -38,6 +38,12 @@ export abstract class DatabaseAdapter {
    * @returns Total number of rows
    */
   abstract getRowCount(tableName: string): number;
+
+  /**
+   * Get core database health info
+   * @returns Health information
+   */
+  abstract getHealthInfo(): HealthInfo;
 
   /**
    * Close the database connection

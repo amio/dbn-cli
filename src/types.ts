@@ -31,6 +31,29 @@ export interface QueryOptions {
 }
 
 /**
+ * Core database health overview info
+ */
+export interface HealthInfo {
+  sqlite_version: string;
+  journal_mode: string;
+  synchronous: string;
+  locking_mode: string;
+  page_size: number;
+  page_count: number;
+  freelist_count: number;
+  cache_size: number;
+  wal_autocheckpoint: number;
+  auto_vacuum: string;
+  user_version: number;
+  application_id: number;
+  encoding: string;
+  foreign_keys: string;
+  temp_store: string;
+  mmap_size: number;
+  busy_timeout: number;
+}
+
+/**
  * Base view state properties
  */
 interface BaseViewState {
@@ -85,9 +108,17 @@ export interface RowDetailViewState extends BaseViewState {
 }
 
 /**
+ * Health overview view state
+ */
+export interface HealthViewState extends BaseViewState {
+  type: 'health';
+  info: HealthInfo;
+}
+
+/**
  * Union type for all possible view states
  */
-export type ViewState = TablesViewState | TableDetailViewState | SchemaViewState | RowDetailViewState;
+export type ViewState = TablesViewState | TableDetailViewState | SchemaViewState | RowDetailViewState | HealthViewState;
 
 /**
  * Screen dimensions
