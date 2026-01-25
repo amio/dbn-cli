@@ -158,10 +158,11 @@ export class Renderer {
       let content = `${cursorChar} ${namePadded} ${countPadded}`;
       
       // Ensure exact width before adding color codes
-      if (content.length > width) {
-        content = content.substring(0, width);
-      } else if (content.length < width) {
-        content += ' '.repeat(width - content.length);
+      const contentWidth = getVisibleWidth(content);
+      if (contentWidth > width) {
+        content = truncate(content, width);
+      } else if (contentWidth < width) {
+        content += ' '.repeat(width - contentWidth);
       }
       
       // Apply color codes to properly sized line
