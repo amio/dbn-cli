@@ -77,19 +77,28 @@ export class Renderer {
     const rightInfoWidth = getVisibleWidth(rightInfo);
     const availableSpace = width - titleWidth - rightInfoWidth;
     
+    // Adjust width to prevent wrapping issues with ambiguous width characters
+    const safeWidth = width - 1;
+
     if (availableSpace > 0) {
-      return title + ' '.repeat(availableSpace) + rightInfo;
+      // Ensure we don't exceed safeWidth
+      let result = title + ' '.repeat(availableSpace) + rightInfo;
+      const resultWidth = getVisibleWidth(result);
+      if (resultWidth > safeWidth) {
+        return truncate(result, safeWidth);
+      }
+      return result;
     } else {
       // Not enough space, truncate title
-      const maxTitleWidth = width - rightInfoWidth - 3; // Reserve space for "..."
+      const maxTitleWidth = safeWidth - rightInfoWidth - 3; // Reserve space for "..."
       if (maxTitleWidth > 10) {
         const truncatedTitle = truncate(title.replace(/\x1b\[[0-9;]*m/g, ''), maxTitleWidth);
         const truncatedWidth = getVisibleWidth(truncatedTitle);
-        const padding = width - truncatedWidth - rightInfoWidth;
+        const padding = safeWidth - truncatedWidth - rightInfoWidth;
         return `${COLORS.bold}${truncatedTitle}${COLORS.reset}` + ' '.repeat(Math.max(0, padding)) + rightInfo;
       } else {
         // Very narrow screen, just show title
-        return truncate(title.replace(/\x1b\[[0-9;]*m/g, ''), width);
+        return truncate(title.replace(/\x1b\[[0-9;]*m/g, ''), safeWidth);
       }
     }
   }
@@ -158,11 +167,12 @@ export class Renderer {
       let content = `${cursorChar} ${namePadded} ${countPadded}`;
       
       // Ensure exact width before adding color codes
+      const safeWidth = width - 1; // Subtract 1 to prevent wrapping issues
       const contentWidth = getVisibleWidth(content);
-      if (contentWidth > width) {
-        content = truncate(content, width);
-      } else if (contentWidth < width) {
-        content += ' '.repeat(width - contentWidth);
+      if (contentWidth > safeWidth) {
+        content = truncate(content, safeWidth);
+      } else if (contentWidth < safeWidth) {
+        content += ' '.repeat(safeWidth - contentWidth);
       }
       
       // Apply color codes to properly sized line
@@ -314,13 +324,14 @@ export class Renderer {
         const contentWithoutPrefix = cells.map((cell, idx) => pad(cell, colWidths[idx] - 1)).join(' ');
         
         // Ensure exact width before adding color codes (using visible width for CJK)
+        const safeWidth = width - 1; // Subtract 1 to prevent wrapping issues
         let content = prefix + ' ' + contentWithoutPrefix;
         const contentWidth = getVisibleWidth(content);
         
-        if (contentWidth > width) {
-          content = truncate(content, width);
-        } else if (contentWidth < width) {
-          content = content + ' '.repeat(width - contentWidth);
+        if (contentWidth > safeWidth) {
+          content = truncate(content, safeWidth);
+        } else if (contentWidth < safeWidth) {
+          content += ' '.repeat(safeWidth - contentWidth);
         }
         
         // Apply color codes to properly sized line
@@ -397,13 +408,14 @@ export class Renderer {
       const contentWidth = getVisibleWidth(content);
       
       // Build line with exact width
+      const safeWidth = width - 1; // Subtract 1 to prevent wrapping issues
       let line: string;
-      if (contentWidth < width) {
-        line = content + ' '.repeat(width - contentWidth);
-      } else if (contentWidth > width) {
+      if (contentWidth < safeWidth) {
+        line = content + ' '.repeat(safeWidth - contentWidth);
+      } else if (contentWidth > safeWidth) {
         // Need to truncate - build without colors first
         const basicContent = `${cursorChar} ${name} ${type} ${attrStr}`;
-        const truncatedBasic = truncate(basicContent, width);
+        const truncatedBasic = truncate(basicContent, safeWidth);
         line = truncatedBasic;
       } else {
         line = content;
