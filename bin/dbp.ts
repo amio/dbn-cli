@@ -1,6 +1,6 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node --experimental-strip-types
 
-import { main } from '../src/index.js';
+import { main } from '../src/index.ts';
 
 // Get command line arguments (skip node and script path)
 const args = process.argv.slice(2);

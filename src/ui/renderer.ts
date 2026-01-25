@@ -1,22 +1,26 @@
-import { COLORS, BORDERS, UI } from './theme.js';
-import { formatNumber, truncate, pad, formatValue, getVisibleWidth } from '../utils/format.js';
+import { COLORS, BORDERS, UI } from './theme.ts';
+import { formatNumber, truncate, pad, formatValue, getVisibleWidth } from '../utils/format.ts';
+import type { Screen } from './screen.ts';
+import type { ViewState, TablesViewState, TableDetailViewState, SchemaViewState, RowDetailViewState } from '../types.ts';
 
 /**
  * Renderer for ncdu-style TUI
  */
 export class Renderer {
-  constructor(screen) {
+  private screen: Screen;
+
+  constructor(screen: Screen) {
     this.screen = screen;
   }
 
   /**
    * Render the current state to screen
-   * @param {Object} state - Current navigation state
-   * @param {string} dbPath - Database file path
+   * @param state - Current navigation state
+   * @param dbPath - Database file path
    */
-  render(state, dbPath) {
+  render(state: ViewState, dbPath: string): void {
     const { width, height } = this.screen;
-    const lines = [];
+    const lines: string[] = [];
 
     // Build all lines
     lines.push(this.buildTitleBar(state, dbPath, width));
@@ -35,8 +39,8 @@ export class Renderer {
   /**
    * Build title bar (top line)
    */
-  buildTitleBar(state, dbPath, width) {
-    const fileName = dbPath.split('/').pop();
+  private buildTitleBar(state: ViewState, dbPath: string, width: number): string {
+    const fileName = dbPath.split('/').pop() || dbPath;
     let title = ` ${fileName}`;
     
     if (state.type === 'table-detail') {
@@ -93,14 +97,14 @@ export class Renderer {
   /**
    * Build separator line
    */
-  buildSeparator(width) {
+  private buildSeparator(width: number): string {
     return `${COLORS.dim}${BORDERS.horizontal.repeat(width)}${COLORS.reset}`;
   }
 
   /**
    * Build main content area
    */
-  buildContent(state, height, width) {
+  private buildContent(state: ViewState, height: number, width: number): string[] {
     if (state.type === 'tables') {
       return this.buildTablesList(state, height, width);
     } else if (state.type === 'table-detail') {
@@ -116,8 +120,8 @@ export class Renderer {
   /**
    * Build tables list view
    */
-  buildTablesList(state, height, width) {
-    const lines = [];
+  private buildTablesList(state: TablesViewState, height: number, width: number): string[] {
+    const lines: string[] = [];
     const { tables, cursor } = state;
 
     if (tables.length === 0) {
@@ -161,7 +165,7 @@ export class Renderer {
       }
       
       // Apply color codes to properly sized line
-      let line;
+      let line: string;
       if (isSelected) {
         line = COLORS.inverse + content + COLORS.reset;
       } else {
@@ -182,8 +186,8 @@ export class Renderer {
   /**
    * Build table detail view
    */
-  buildTableDetail(state, height, width) {
-    const lines = [];
+  private buildTableDetail(state: TableDetailViewState, height: number, width: number): string[] {
+    const lines: string[] = [];
     const { data, totalRows, dataOffset, dataCursor } = state;
 
     if (data.length === 0) {
@@ -221,7 +225,7 @@ export class Renderer {
       let totalIdealWidth = idealWidths.reduce((sum, w) => sum + w, 0);
       
       // Allocate widths
-      const colWidths = [];
+      const colWidths: number[] = [];
       
       if (totalIdealWidth <= usableWidth) {
         // We have extra space - distribute it intelligently
@@ -319,7 +323,7 @@ export class Renderer {
         }
         
         // Apply color codes to properly sized line
-        let line;
+        let line: string;
         if (isSelected) {
           line = COLORS.inverse + content + COLORS.reset;
         } else {
@@ -341,8 +345,8 @@ export class Renderer {
   /**
    * Build schema view (full screen)
    */
-  buildSchemaView(state, height, width) {
-    const lines = [];
+  private buildSchemaView(state: SchemaViewState, height: number, width: number): string[] {
+    const lines: string[] = [];
     const { schema, cursor, scrollOffset } = state;
 
     if (schema.length === 0) {
@@ -378,7 +382,7 @@ export class Renderer {
       const type = pad(truncate(col.type, typeWidth - 1), typeWidth);
       
       // Build attributes string
-      const attrs = [];
+      const attrs: string[] = [];
       if (col.pk) attrs.push('PK');
       if (col.notnull) attrs.push('NOT NULL');
       if (col.dflt_value !== null) attrs.push(`DEFAULT ${col.dflt_value}`);
@@ -392,7 +396,7 @@ export class Renderer {
       const contentWidth = getVisibleWidth(content);
       
       // Build line with exact width
-      let line;
+      let line: string;
       if (contentWidth < width) {
         line = content + ' '.repeat(width - contentWidth);
       } else if (contentWidth > width) {
@@ -423,8 +427,8 @@ export class Renderer {
   /**
    * Build row detail view
    */
-  buildRowDetail(state, height, width) {
-    const lines = [];
+  private buildRowDetail(state: RowDetailViewState, height: number, width: number): string[] {
+    const lines: string[] = [];
     const { row, schema, tableName, rowIndex } = state;
     
     // Get max column name length for alignment
@@ -463,7 +467,7 @@ export class Renderer {
   /**
    * Build help bar (bottom line)
    */
-  buildHelpBar(state, width) {
+  private buildHelpBar(state: ViewState, width: number): string {
     let help = '';
     
     if (state.type === 'tables') {

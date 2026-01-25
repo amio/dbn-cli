@@ -1,41 +1,50 @@
+import type { DatabaseAdapter } from '../adapter/base.ts';
+import type { ViewState, TablesViewState, TableDetailViewState, SchemaViewState, RowDetailViewState } from '../types.ts';
+
 /**
  * Navigation state manager
  * Handles view hierarchy and cursor position
  */
 export class Navigator {
-  constructor(adapter) {
+  private adapter: DatabaseAdapter;
+  private states: ViewState[] = [];
+  private currentState: ViewState | null = null;
+
+  constructor(adapter: DatabaseAdapter) {
     this.adapter = adapter;
-    this.states = []; // Stack of view states
-    this.currentState = null;
   }
 
   /**
    * Initialize navigator with tables list view
    */
-  init() {
+  init(): void {
     const tables = this.adapter.getTables();
     this.currentState = {
       type: 'tables',
       tables: tables,
       cursor: 0,
       scrollOffset: 0
-    };
+    } as TablesViewState;
     this.states = [this.currentState];
   }
 
   /**
    * Get current view state
-   * @returns {Object}
+   * @returns Current view state
    */
-  getState() {
+  getState(): ViewState {
+    if (!this.currentState) {
+      throw new Error('Navigator not initialized');
+    }
     return this.currentState;
   }
 
   /**
    * Move cursor up
    */
-  moveUp() {
+  moveUp(): void {
     const state = this.currentState;
+    if (!state) return;
     
     if (state.type === 'tables') {
       if (state.cursor > 0) {
@@ -59,8 +68,9 @@ export class Navigator {
   /**
    * Move cursor down
    */
-  moveDown() {
+  moveDown(): void {
     const state = this.currentState;
+    if (!state) return;
     
     if (state.type === 'tables') {
       if (state.cursor < state.tables.length - 1) {
@@ -85,8 +95,9 @@ export class Navigator {
   /**
    * Jump to top
    */
-  jumpToTop() {
+  jumpToTop(): void {
     const state = this.currentState;
+    if (!state) return;
     
     if (state.type === 'tables') {
       state.cursor = 0;
@@ -102,8 +113,9 @@ export class Navigator {
   /**
    * Jump to bottom
    */
-  jumpToBottom() {
+  jumpToBottom(): void {
     const state = this.currentState;
+    if (!state) return;
     
     if (state.type === 'tables') {
       state.cursor = state.tables.length - 1;
@@ -120,20 +132,9 @@ export class Navigator {
   /**
    * Toggle schema display in table detail view
    */
-  toggleSchema() {
+  toggleSchema(): void {
     const state = this.currentState;
-    if (state.type === 'table-detail') {
-      // Toggle showSchema flag
-      state.showSchema = !state.showSchema;
-    }
-  }
-
-  /**
-   * Toggle schema display in table detail view
-   */
-  toggleSchema() {
-    const state = this.currentState;
-    if (state.type === 'table-detail') {
+    if (state && state.type === 'table-detail') {
       // Toggle showSchema flag
       state.showSchema = !state.showSchema;
     }
@@ -142,11 +143,11 @@ export class Navigator {
   /**
    * View schema in full screen mode
    */
-  viewSchema() {
+  viewSchema(): void {
     const state = this.currentState;
-    if (state.type === 'table-detail') {
+    if (state && state.type === 'table-detail') {
       // Create full screen schema view
-      const newState = {
+      const newState: SchemaViewState = {
         type: 'schema-view',
         tableName: state.tableName,
         schema: state.schema,
@@ -162,8 +163,9 @@ export class Navigator {
   /**
    * Enter the selected item (go deeper in hierarchy)
    */
-  enter() {
+  enter(): void {
     const state = this.currentState;
+    if (!state) return;
     
     if (state.type === 'tables') {
       const selectedTable = state.tables[state.cursor];
@@ -174,7 +176,7 @@ export class Navigator {
       const totalRows = selectedTable.row_count;
       const data = this.adapter.getTableData(selectedTable.name, { limit: 100, offset: 0 });
       
-      const newState = {
+      const newState: TableDetailViewState = {
         type: 'table-detail',
         tableName: selectedTable.name,
         schema: schema,
@@ -194,7 +196,7 @@ export class Navigator {
         const selectedRow = state.data[state.dataCursor];
         if (!selectedRow) return;
         
-        const newState = {
+        const newState: RowDetailViewState = {
           type: 'row-detail',
           tableName: state.tableName,
           row: selectedRow,
@@ -211,7 +213,7 @@ export class Navigator {
   /**
    * Go back to previous view
    */
-  back() {
+  back(): void {
     if (this.states.length > 1) {
       this.states.pop();
       this.currentState = this.states[this.states.length - 1];
@@ -221,10 +223,10 @@ export class Navigator {
   /**
    * Reload current view data
    */
-  reload() {
+  reload(): void {
     const state = this.currentState;
     
-    if (state.type === 'table-detail') {
+    if (state && state.type === 'table-detail') {
       // Reload table data with current offset
       const loadOffset = Math.max(0, state.dataOffset);
       state.data = this.adapter.getTableData(state.tableName, { 
@@ -236,10 +238,10 @@ export class Navigator {
 
   /**
    * Get breadcrumb path
-   * @returns {string}
+   * @returns Breadcrumb path string
    */
-  getPath() {
-    const parts = [];
+  getPath(): string {
+    const parts: string[] = [];
     for (const state of this.states) {
       if (state.type === 'tables') {
         // Root level, no need to add

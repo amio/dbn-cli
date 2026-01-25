@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { COLORS, BORDERS, UI } from '../src/ui/theme.js';
+import { COLORS, BORDERS, UI } from '../src/ui/theme.ts';
 
 describe('Theme', () => {
   describe('COLORS', () => {

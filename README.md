@@ -5,12 +5,13 @@ A zero-dependency terminal SQLite browser with ncdu-style interface.
 ## Features
 
 - **Zero dependencies** - Uses Node.js 22+ built-in `node:sqlite`
+- **TypeScript** - Written in TypeScript with native Node.js 22.18+ support
 - **Full-screen TUI** - ncdu-inspired keyboard navigation
 - **Fast** - Native SQLite performance
 
 ## Requirements
 
-- Node.js >= 22.5.0
+- Node.js >= 22.18.0
 
 ## Installation
 

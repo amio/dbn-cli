@@ -4,20 +4,20 @@
 
 /**
  * Format a number with thousand separators
- * @param {number} num - Number to format
- * @returns {string}
+ * @param num - Number to format
+ * @returns Formatted number string
  */
-export function formatNumber(num) {
+export function formatNumber(num: number): string {
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
 /**
  * Truncate a string to a specific visible width with ellipsis
- * @param {string} str - String to truncate
- * @param {number} maxWidth - Maximum visible width (accounting for double-width chars)
- * @returns {string}
+ * @param str - String to truncate
+ * @param maxWidth - Maximum visible width (accounting for double-width chars)
+ * @returns Truncated string
  */
-export function truncate(str, maxWidth) {
+export function truncate(str: string, maxWidth: number): string {
   if (!str) return '';
   const s = String(str);
   
@@ -47,12 +47,12 @@ export function truncate(str, maxWidth) {
 
 /**
  * Pad a string to a specific visible width
- * @param {string} str - String to pad
- * @param {number} targetWidth - Target visible width (accounting for double-width chars)
- * @param {string} align - Alignment: 'left', 'right', or 'center'
- * @returns {string}
+ * @param str - String to pad
+ * @param targetWidth - Target visible width (accounting for double-width chars)
+ * @param align - Alignment: 'left', 'right', or 'center'
+ * @returns Padded string
  */
-export function pad(str, targetWidth, align = 'left') {
+export function pad(str: string, targetWidth: number, align: 'left' | 'right' | 'center' = 'left'): string {
   const s = String(str || '');
   const currentWidth = getVisibleWidth(s);
   
@@ -96,10 +96,10 @@ export function pad(str, targetWidth, align = 'left') {
 
 /**
  * Format a value for display (handle null, undefined, etc.)
- * @param {any} value - Value to format
- * @returns {string}
+ * @param value - Value to format
+ * @returns Formatted string
  */
-export function formatValue(value) {
+export function formatValue(value: any): string {
   if (value === null) return 'NULL';
   if (value === undefined) return '';
   if (typeof value === 'boolean') return value ? 'true' : 'false';
@@ -112,11 +112,12 @@ export function formatValue(value) {
 
 /**
  * Check if a character is double-width (CJK, emoji, etc.)
- * @param {string} char - Single character or code point
- * @returns {boolean}
+ * @param char - Single character or code point
+ * @returns True if character is double-width
  */
-function isDoubleWidth(char) {
+function isDoubleWidth(char: string): boolean {
   const code = char.codePointAt(0);
+  if (!code) return false;
   
   return (
     // CJK Unified Ideographs
@@ -154,10 +155,10 @@ function isDoubleWidth(char) {
 
 /**
  * Get the visible width of a string (accounting for ANSI codes, CJK characters, and emoji)
- * @param {string} str - String to measure
- * @returns {number}
+ * @param str - String to measure
+ * @returns Visible width
  */
-export function getVisibleWidth(str) {
+export function getVisibleWidth(str: string): number {
   // Remove ANSI escape codes
   const cleanStr = str.replace(/\x1b\[[0-9;]*m/g, '');
   

@@ -47,7 +47,7 @@ db.exec(`
 
 // Insert sample users
 const insertUser = db.prepare('INSERT INTO users (name, email, age) VALUES (?, ?, ?)');
-const users = [
+const users: [string, string, number][] = [
   ['Alice Johnson', 'alice@example.com', 28],
   ['Bob Smith', 'bob@example.com', 34],
   ['Charlie Brown', 'charlie@example.com', 42],
@@ -64,11 +64,11 @@ for (const user of users) {
 
 // Insert sample posts
 const insertPost = db.prepare('INSERT INTO posts (user_id, title, content, views, published) VALUES (?, ?, ?, ?, ?)');
-const posts = [
+const posts: [number, string, string, number, number][] = [
   [1, 'Getting Started with SQLite', 'SQLite is a great embedded database...', 1234, 1],
   [1, 'Advanced SQL Queries', 'Learn how to write complex SQL queries...', 856, 1],
   [2, 'Web Development Tips', 'Here are some tips for web developers...', 2341, 1],
-  [2, 'Introduction to Node.js', 'Node.js is a JavaScript runtime...', 3456, 1],
+  [2, 'Introduction to Node.ts', 'Node.js is a JavaScript runtime...', 3456, 1],
   [3, 'Database Design Patterns', 'Good database design is crucial...', 789, 1],
   [3, 'Performance Optimization', 'Tips for optimizing database performance...', 1567, 1],
   [4, 'Security Best Practices', 'Keep your applications secure...', 4321, 1],
@@ -84,7 +84,7 @@ for (const post of posts) {
 
 // Insert sample comments
 const insertComment = db.prepare('INSERT INTO comments (post_id, author_name, content) VALUES (?, ?, ?)');
-const comments = [
+const comments: [number, string, string][] = [
   [1, 'John Doe', 'Great article! Very helpful.'],
   [1, 'Jane Smith', 'Thanks for sharing this.'],
   [2, 'Mike Johnson', 'I learned a lot from this post.'],
@@ -108,4 +108,4 @@ console.log('  - 8 users');
 console.log('  - 11 posts');
 console.log('  - 10 comments');
 console.log('');
-console.log('Run: node bin/dbp.js example.db');
+console.log('Run: node --experimental-strip-types bin/dbp.ts example.db');

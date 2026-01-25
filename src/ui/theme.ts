@@ -29,7 +29,7 @@ export const COLORS = {
   bgMagenta: '\x1b[45m',
   bgCyan: '\x1b[46m',
   bgWhite: '\x1b[47m',
-};
+} as const;
 
 /**
  * Unicode box drawing characters
@@ -46,7 +46,7 @@ export const BORDERS = {
   topJoin: '┬',
   bottomJoin: '┴',
   cross: '┼',
-};
+} as const;
 
 /**
  * Common UI elements
@@ -55,4 +55,4 @@ export const UI = {
   cursor: '>',
   empty: ' ',
   ellipsis: '...',
-};
+} as const;

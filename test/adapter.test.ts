@@ -2,14 +2,14 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
 import { DatabaseSync } from 'node:sqlite';
 import { existsSync, unlinkSync } from 'node:fs';
-import { SQLiteAdapter } from '../src/adapter/sqlite.js';
+import { SQLiteAdapter } from '../src/adapter/sqlite.ts';
 
 const TEST_DB = './test/test.db';
 
 /**
  * Set up test database
  */
-function setupTestDB() {
+function setupTestDB(): void {
   // Remove old test db if exists
   if (existsSync(TEST_DB)) {
     unlinkSync(TEST_DB);
@@ -55,7 +55,7 @@ function setupTestDB() {
 /**
  * Clean up test database
  */
-function cleanupTestDB() {
+function cleanupTestDB(): void {
   if (existsSync(TEST_DB)) {
     unlinkSync(TEST_DB);
   }
@@ -76,8 +76,8 @@ describe('SQLiteAdapter', () => {
   it('should connect to database', () => {
     const adapter = new SQLiteAdapter();
     adapter.connect(TEST_DB);
-    assert.ok(adapter.db !== null, 'Database should be connected');
-    assert.strictEqual(adapter.path, TEST_DB, 'Path should be set correctly');
+    assert.ok((adapter as any).db !== null, 'Database should be connected');
+    assert.strictEqual((adapter as any).path, TEST_DB, 'Path should be set correctly');
     adapter.close();
   });
 
@@ -173,10 +173,10 @@ describe('SQLiteAdapter', () => {
   it('should close database connection', () => {
     const adapter = new SQLiteAdapter();
     adapter.connect(TEST_DB);
-    assert.ok(adapter.db !== null, 'Database should be connected');
+    assert.ok((adapter as any).db !== null, 'Database should be connected');
     
     adapter.close();
-    assert.strictEqual(adapter.db, null, 'Database should be null after close');
+    assert.strictEqual((adapter as any).db, null, 'Database should be null after close');
   });
 
   it('should handle closing when not connected', () => {

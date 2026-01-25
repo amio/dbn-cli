@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { formatNumber, truncate, pad, formatValue, getVisibleWidth } from '../src/utils/format.js';
+import { formatNumber, truncate, pad, formatValue, getVisibleWidth } from '../src/utils/format.ts';
 
 describe('Format Utils', () => {
   describe('formatNumber', () => {
@@ -20,8 +20,8 @@ describe('Format Utils', () => {
     });
 
     it('should handle null and undefined', () => {
-      assert.strictEqual(truncate(null, 10), '');
-      assert.strictEqual(truncate(undefined, 10), '');
+      assert.strictEqual(truncate(null as any, 10), '');
+      assert.strictEqual(truncate(undefined as any, 10), '');
     });
 
     it('should handle empty strings', () => {
@@ -29,8 +29,8 @@ describe('Format Utils', () => {
     });
 
     it('should convert non-strings', () => {
-      assert.strictEqual(truncate(123, 5), '123');
-      assert.strictEqual(truncate(12345678, 5), '12...');
+      assert.strictEqual(truncate(123 as any, 5), '123');
+      assert.strictEqual(truncate(12345678 as any, 5), '12...');
     });
 
     it('should truncate CJK strings correctly by visible width', () => {
@@ -68,8 +68,8 @@ describe('Format Utils', () => {
     });
 
     it('should handle null and undefined', () => {
-      assert.strictEqual(pad(null, 5), '     ');
-      assert.strictEqual(pad(undefined, 5), '     ');
+      assert.strictEqual(pad(null as any, 5), '     ');
+      assert.strictEqual(pad(undefined as any, 5), '     ');
     });
 
     it('should pad CJK strings correctly by visible width', () => {

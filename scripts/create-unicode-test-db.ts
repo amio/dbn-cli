@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node --experimental-strip-types
 
 /**
  * Create a test database with Unicode content (CJK and emoji)
@@ -38,7 +38,7 @@ const insert = db.prepare(`
   VALUES (?, ?, ?, ?)
 `);
 
-const testData = [
+const testData: [string, string, string, string][] = [
   ['Alice', 'Hello! 👋 How can I help you today?', '👋', 'active'],
   ['张三', '你好，很高兴认识你', '😊', 'active'],
   ['Bob', 'Why don\'t scientists trust atoms? Because they make up everything! 😄', '😄', 'active'],

@@ -1,28 +1,31 @@
 import { stdin, stdout, exit } from 'node:process';
 import { existsSync } from 'node:fs';
 import * as readline from 'node:readline';
-import { SQLiteAdapter } from './adapter/sqlite.js';
-import { Screen } from './ui/screen.js';
-import { Renderer } from './ui/renderer.js';
-import { Navigator } from './ui/navigator.js';
+import { SQLiteAdapter } from './adapter/sqlite.ts';
+import { Screen } from './ui/screen.ts';
+import { Renderer } from './ui/renderer.ts';
+import { Navigator } from './ui/navigator.ts';
+import type { KeyPress } from './types.ts';
 
 /**
  * Main application class
  */
 export class DBPeek {
-  constructor(dbPath) {
+  private dbPath: string;
+  private adapter: SQLiteAdapter | null = null;
+  private screen: Screen | null = null;
+  private renderer: Renderer | null = null;
+  private navigator: Navigator | null = null;
+  private isRunning: boolean = false;
+
+  constructor(dbPath: string) {
     this.dbPath = dbPath;
-    this.adapter = null;
-    this.screen = null;
-    this.renderer = null;
-    this.navigator = null;
-    this.isRunning = false;
   }
 
   /**
    * Initialize the application
    */
-  init() {
+  init(): void {
     // Validate database file
     if (!existsSync(this.dbPath)) {
       console.error(`Error: Database file not found: ${this.dbPath}`);
@@ -34,7 +37,7 @@ export class DBPeek {
       this.adapter = new SQLiteAdapter();
       this.adapter.connect(this.dbPath);
     } catch (error) {
-      console.error(`Error: ${error.message}`);
+      console.error(`Error: ${(error as Error).message}`);
       exit(1);
     }
 
@@ -47,7 +50,7 @@ export class DBPeek {
     try {
       this.navigator.init();
     } catch (error) {
-      console.error(`Error loading tables: ${error.message}`);
+      console.error(`Error loading tables: ${(error as Error).message}`);
       this.cleanup();
       exit(1);
     }
@@ -56,7 +59,11 @@ export class DBPeek {
   /**
    * Start the application
    */
-  start() {
+  start(): void {
+    if (!this.screen || !this.navigator) {
+      throw new Error('Application not initialized');
+    }
+
     this.isRunning = true;
 
     // Enter full screen mode
@@ -77,7 +84,7 @@ export class DBPeek {
   /**
    * Set up keyboard input handling
    */
-  setupInput() {
+  private setupInput(): void {
     // Enable raw mode for key-by-key input
     stdin.setRawMode(true);
     stdin.resume();
@@ -86,7 +93,7 @@ export class DBPeek {
     // Enable keypress events
     readline.emitKeypressEvents(stdin);
 
-    stdin.on('keypress', (str, key) => {
+    stdin.on('keypress', (str: string, key: KeyPress) => {
       if (!this.isRunning) return;
 
       this.handleKeypress(str, key);
@@ -96,7 +103,9 @@ export class DBPeek {
   /**
    * Handle keypress events
    */
-  handleKeypress(str, key) {
+  private handleKeypress(str: string, key: KeyPress): void {
+    if (!this.navigator) return;
+
     // Handle Ctrl+C
     if (key.ctrl && key.name === 'c') {
       this.quit();
@@ -169,14 +178,16 @@ export class DBPeek {
   /**
    * Render the current state
    */
-  render() {
+  private render(): void {
+    if (!this.renderer || !this.navigator) return;
+
     try {
       const state = this.navigator.getState();
       this.renderer.render(state, this.dbPath);
     } catch (error) {
       // If rendering fails, try to show error and quit gracefully
       this.cleanup();
-      console.error(`Render error: ${error.message}`);
+      console.error(`Render error: ${(error as Error).message}`);
       exit(1);
     }
   }
@@ -184,7 +195,7 @@ export class DBPeek {
   /**
    * Quit the application
    */
-  quit() {
+  quit(): void {
     this.isRunning = false;
     this.cleanup();
     exit(0);
@@ -193,7 +204,7 @@ export class DBPeek {
   /**
    * Clean up resources
    */
-  cleanup() {
+  cleanup(): void {
     // Exit full screen mode
     if (this.screen) {
       this.screen.exit();
@@ -215,7 +226,7 @@ export class DBPeek {
 /**
  * Main entry point
  */
-export function main(args) {
+export function main(args: string[]): void {
   const dbPath = args[0];
 
   if (!dbPath) {
