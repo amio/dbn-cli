@@ -5,7 +5,7 @@
   "type": "module",
   "main": "src/index.ts",
     "bin": {
-      "dbn": "./bin/dbp.ts"
+      "dbn": "./bin/dbn.ts"
     },
   "scripts": {
     "test": "node --test --experimental-strip-types test/*.test.ts",
