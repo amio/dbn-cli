@@ -4,9 +4,9 @@
   "description": "A lightweight terminal-based database browser",
   "type": "module",
   "main": "src/index.ts",
-    "bin": {
-      "dbn": "./bin/dbn.ts"
-    },
+  "bin": {
+    "dbn": "./bin/dbn.ts"
+  },
   "scripts": {
     "test": "node --test --experimental-strip-types test/*.test.ts",
     "test:watch": "node --test --watch --experimental-strip-types test/*.test.ts",
