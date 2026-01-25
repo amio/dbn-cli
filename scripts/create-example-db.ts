@@ -1,12 +1,17 @@
 import { DatabaseSync } from 'node:sqlite';
 import { unlinkSync, existsSync } from 'node:fs';
 
-// Delete existing database file if it exists
-if (existsSync('./example.db')) {
-  unlinkSync('./example.db');
+// Ensure test asset path and delete existing database file if it exists
+const exampleDbPath = 'test/assets/example.db';
+if (!existsSync('test')) {
+  try { require('node:fs').mkdirSync('test/assets', { recursive: true }); } catch {}
 }
 
-const db = new DatabaseSync('./example.db');
+if (existsSync(exampleDbPath)) {
+  unlinkSync(exampleDbPath);
+}
+
+const db = new DatabaseSync(exampleDbPath);
 
 // Create users table
 db.exec(`
@@ -103,7 +108,7 @@ for (const comment of comments) {
 
 db.close();
 
-console.log('✓ Example database created: example.db');
+console.log(`✓ Example database created: ${exampleDbPath}`);
 console.log('  - 8 users');
 console.log('  - 11 posts');
 console.log('  - 10 comments');

@@ -8,7 +8,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { unlink } from 'node:fs';
 
-const dbPath = 'unicode-test.db';
+const dbPath = 'test/assets/unicode-test.db';
 
 // Remove existing database
 try {
@@ -77,4 +77,4 @@ db.exec(`
 db.close();
 
 console.log(`✅ Database created: ${dbPath}`);
-console.log('Test it with: npm run dev unicode-test.db');
+console.log('Test it with: npm run dev test/assets/unicode-test.db');

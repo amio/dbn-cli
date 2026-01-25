@@ -1,6 +1,7 @@
 node_modules
+# Ignore generated test databases
+test/assets/*.db
+test/assets/*.db-shm
+test/assets/*.db-wal
 example.db*
 unicode-test.db*
-*.db-shm
-*.db-wal
-test/test.db
