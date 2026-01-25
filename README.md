@@ -1,4 +1,4 @@
-# DBPeek
+# dbn
 
 A zero-dependency terminal SQLite browser with ncdu-style interface.
 
@@ -16,13 +16,13 @@ A zero-dependency terminal SQLite browser with ncdu-style interface.
 ## Installation
 
 ```bash
-npm install -g dbpeek
+npm install -g dbn-cli
 ```
 
 ## Usage
 
 ```bash
-dbp <path-to-sqlite-db-file>
+dbn <path-to-sqlite-db-file>
 ```
 
 ## Keyboard Shortcuts
