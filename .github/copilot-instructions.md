@@ -93,7 +93,7 @@ Each test creates its own SQLite database, runs tests, then cleans up. See `test
 ```bash
 npm run dev path/to/database.db
 # OR
-node bin/dbp.js example.db
+node bin/dbn.js example.db
 ```
 
 ### Creating Test Databases
@@ -156,7 +156,7 @@ Failing to do this causes visual glitches.
 - `*.test.js` for test files (auto-discovered by test runner)
 - `*.md` for documentation
 - Utility scripts in `scripts/` directory
-- Single entry point: `bin/dbp.js` (shebang for CLI)
+ - Single entry point: `bin/dbn.js` (shebang for CLI)
 
 ## When Adding Features
 

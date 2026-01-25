@@ -230,10 +230,10 @@ export function main(args: string[]): void {
   const dbPath = args[0];
 
   if (!dbPath) {
-    console.error('Usage: dbp <path-to-sqlite-db-file>');
+    console.error('Usage: dbn <path-to-sqlite-db-file>');
     console.error('');
     console.error('Example:');
-    console.error('  dbp ./mydatabase.db');
+    console.error('  dbn ./mydatabase.db');
     exit(1);
   }
 

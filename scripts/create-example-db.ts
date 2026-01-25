@@ -108,4 +108,4 @@ console.log('  - 8 users');
 console.log('  - 11 posts');
 console.log('  - 10 comments');
 console.log('');
-console.log('Run: node --experimental-strip-types bin/dbp.ts example.db');
+console.log('Run: node --experimental-strip-types bin/dbn.ts example.db');
