@@ -99,6 +99,39 @@ export class SQLiteAdapter extends DatabaseAdapter {
   }
 
   /**
+   * Delete a single row from a table by its primary key values
+   * @param tableName - Name of the table
+   * @param keyValues - Primary key column/value mapping
+   */
+  deleteRow(tableName: string, keyValues: Record<string, any>): void {
+    if (!this.db) {
+      throw new Error('Database not connected');
+    }
+
+    const keys = Object.keys(keyValues);
+    if (keys.length === 0) {
+      throw new Error(`No primary key values provided for delete on ${tableName}`);
+    }
+
+    const conditions: string[] = [];
+    const values: any[] = [];
+
+    for (const key of keys) {
+      const value = keyValues[key];
+      if (value === null || value === undefined) {
+        conditions.push(`"${key}" IS NULL`);
+      } else {
+        conditions.push(`"${key}" = ?`);
+        values.push(value);
+      }
+    }
+
+    const whereClause = conditions.join(' AND ');
+    const stmt = this.db.prepare(`DELETE FROM "${tableName}" WHERE ${whereClause}`);
+    stmt.run(...values);
+  }
+
+  /**
    * Get core database health info
    */
   getHealthInfo(): HealthInfo {

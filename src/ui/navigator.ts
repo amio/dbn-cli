@@ -238,6 +238,162 @@ export class Navigator {
   }
 
   /**
+   * Request delete for the currently selected row
+   */
+  requestDelete(): void {
+    const state = this.currentState;
+    if (!state) return;
+
+    if (state.type === 'table-detail') {
+      state.deleteConfirm = undefined;
+      if (state.data.length === 0) {
+        state.notice = 'No row selected';
+        return;
+      }
+
+      const selectedRow = state.data[state.dataCursor];
+      if (!selectedRow) {
+        state.notice = 'No row selected';
+        return;
+      }
+
+      const result = this.getPrimaryKeyValues(state.schema, selectedRow);
+      if ('error' in result) {
+        state.notice = result.error;
+        return;
+      }
+
+      state.deleteConfirm = {
+        tableName: state.tableName,
+        rowIndex: state.dataOffset + state.dataCursor,
+        keyValues: result.keyValues,
+        step: 1
+      };
+      state.notice = `Delete row ${state.dataOffset + state.dataCursor + 1}? Press y`;
+    } else if (state.type === 'row-detail') {
+      state.deleteConfirm = undefined;
+      const result = this.getPrimaryKeyValues(state.schema, state.row);
+      if ('error' in result) {
+        state.notice = result.error;
+        return;
+      }
+
+      state.deleteConfirm = {
+        tableName: state.tableName,
+        rowIndex: state.rowIndex,
+        keyValues: result.keyValues,
+        step: 1
+      };
+      state.notice = `Delete row ${state.rowIndex + 1}? Press y`;
+    }
+  }
+
+  /**
+   * Confirm delete (multi-step)
+   */
+  confirmDelete(): void {
+    const state = this.currentState;
+    if (!state) return;
+
+    if (state.type === 'table-detail' && state.deleteConfirm) {
+      const confirm = state.deleteConfirm;
+
+      if (confirm.step === 1) {
+        state.deleteConfirm = { ...confirm, step: 2 };
+        state.notice = `Delete row ${confirm.rowIndex + 1}? Press y again`;
+        return;
+      }
+
+      try {
+        this.adapter.deleteRow(confirm.tableName, confirm.keyValues);
+      } catch (error) {
+        state.notice = `Delete failed: ${(error as Error).message}`;
+        state.deleteConfirm = undefined;
+        return;
+      }
+
+      state.deleteConfirm = undefined;
+      state.notice = `Row ${confirm.rowIndex + 1} deleted`;
+      state.totalRows = this.adapter.getRowCount(state.tableName);
+
+      const maxOffset = Math.max(0, state.totalRows - state.visibleRows);
+      state.dataOffset = Math.min(state.dataOffset, maxOffset);
+
+      this.reload();
+      if (state.dataCursor >= state.data.length) {
+        state.dataCursor = Math.max(0, state.data.length - 1);
+      }
+    } else if (state.type === 'row-detail' && state.deleteConfirm) {
+      const confirm = state.deleteConfirm;
+
+      if (confirm.step === 1) {
+        state.deleteConfirm = { ...confirm, step: 2 };
+        state.notice = `Delete row ${confirm.rowIndex + 1}? Press y again`;
+        return;
+      }
+
+      try {
+        this.adapter.deleteRow(confirm.tableName, confirm.keyValues);
+      } catch (error) {
+        state.notice = `Delete failed: ${(error as Error).message}`;
+        state.deleteConfirm = undefined;
+        return;
+      }
+
+      const parent = this.states[this.states.length - 2];
+      if (parent && parent.type === 'table-detail') {
+        parent.notice = `Row ${confirm.rowIndex + 1} deleted`;
+        parent.totalRows = this.adapter.getRowCount(parent.tableName);
+
+        const maxOffset = Math.max(0, parent.totalRows - parent.visibleRows);
+        parent.dataOffset = Math.min(parent.dataOffset, maxOffset);
+
+        parent.deleteConfirm = undefined;
+        this.states.pop();
+        this.currentState = parent;
+        this.reload();
+
+        if (parent.dataCursor >= parent.data.length) {
+          parent.dataCursor = Math.max(0, parent.data.length - 1);
+        }
+      } else {
+        state.notice = `Row ${confirm.rowIndex + 1} deleted`;
+        state.deleteConfirm = undefined;
+      }
+    }
+  }
+
+  /**
+   * Cancel delete confirmation
+   */
+  cancelDelete(): void {
+    const state = this.currentState;
+    if (!state) return;
+
+    if (state.type === 'table-detail' && state.deleteConfirm) {
+      state.deleteConfirm = undefined;
+      state.notice = 'Delete cancelled';
+    } else if (state.type === 'row-detail' && state.deleteConfirm) {
+      state.deleteConfirm = undefined;
+      state.notice = 'Delete cancelled';
+    }
+  }
+
+  /**
+   * Check if the current view is awaiting delete confirmation
+   */
+  hasPendingDelete(): boolean {
+    const state = this.currentState;
+    if (!state) return false;
+
+    if (state.type === 'table-detail' || state.type === 'row-detail') {
+      return Boolean(state.deleteConfirm);
+    }
+
+    return false;
+  }
+
+  /**
    * Reload current view data
    */
   reload(): void {
@@ -251,6 +407,28 @@ export class Navigator {
         offset: loadOffset 
       });
     }
+  }
+
+  private getPrimaryKeyValues(
+    schema: TableDetailViewState['schema'],
+    row: Record<string, any>
+  ): { keyValues: Record<string, any> } | { error: string } {
+    const pkColumns = schema
+      .filter(col => col.pk)
+      .sort((a, b) => a.pk - b.pk);
+    if (pkColumns.length === 0) {
+      return { error: 'Cannot delete: table has no primary key' };
+    }
+
+    const keyValues: Record<string, any> = {};
+    for (const col of pkColumns) {
+      if (!(col.name in row)) {
+        return { error: `Cannot delete: missing primary key value for ${col.name}` };
+      }
+      keyValues[col.name] = row[col.name];
+    }
+
+    return { keyValues };
   }
 
   /**

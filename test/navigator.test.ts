@@ -29,6 +29,10 @@ describe('Navigator', () => {
         content TEXT,
         FOREIGN KEY (user_id) REFERENCES users(id)
       );
+      
+      CREATE TABLE logs (
+        message TEXT
+      );
     `);
     
     // Insert test data
@@ -41,6 +45,10 @@ describe('Navigator', () => {
     insertPost.run(1, 'Post 1', 'Content 1');
     insertPost.run(1, 'Post 2', 'Content 2');
     insertPost.run(2, 'Post 3', 'Content 3');
+    
+    const insertLog = db.prepare('INSERT INTO logs (message) VALUES (?)');
+    insertLog.run('First log entry');
+    insertLog.run('Second log entry');
     
     db.close();
     
@@ -165,10 +173,30 @@ describe('Navigator', () => {
   });
 
   describe('schema view toggle', () => {
-    it('should view schema from table detail', () => {
+    const enterUsersTable = () => {
       navigator.init();
+      const tablesState = navigator.getState() as any;
+      const index = tablesState.tables.findIndex((t: any) => t.name === 'users');
+      assert.ok(index >= 0);
+      
+      while ((navigator.getState() as any).cursor < index) {
+        navigator.moveDown();
+      }
+      
+      while ((navigator.getState() as any).cursor > index) {
+        navigator.moveUp();
+      }
+      
       navigator.enter();
+    };
+    
+    const enterSchemaView = () => {
+      enterUsersTable();
       navigator.viewSchema();
+    };
+    
+    it('should view schema from table detail', () => {
+      enterSchemaView();
       
       const state = navigator.getState() as any;
       assert.strictEqual(state.type, 'schema-view');
@@ -179,7 +207,9 @@ describe('Navigator', () => {
     });
 
     it('should navigate in schema view', () => {
+      enterSchemaView();
       const state = navigator.getState() as any;
+      assert.strictEqual(state.type, 'schema-view');
       assert.strictEqual(state.cursor, 0);
       
       navigator.moveDown();
@@ -190,6 +220,7 @@ describe('Navigator', () => {
     });
 
     it('should jump to top/bottom in schema view', () => {
+      enterSchemaView();
       navigator.moveDown();
       navigator.jumpToTop();
       assert.strictEqual((navigator.getState() as any).cursor, 0);
@@ -200,6 +231,7 @@ describe('Navigator', () => {
     });
 
     it('should not move cursor beyond schema bounds', () => {
+      enterSchemaView();
       navigator.jumpToTop();
       navigator.moveUp();
       assert.strictEqual((navigator.getState() as any).cursor, 0);
@@ -211,6 +243,7 @@ describe('Navigator', () => {
     });
 
     it('should go back to table detail', () => {
+      enterSchemaView();
       navigator.back();
       
       const state = navigator.getState();
@@ -218,6 +251,7 @@ describe('Navigator', () => {
     });
 
     it('should preserve table detail state when toggling', () => {
+      enterUsersTable();
       const state = navigator.getState() as any;
       const tableName = state.tableName;
       const dataOffset = state.dataOffset;
@@ -256,6 +290,71 @@ describe('Navigator', () => {
     });
   });
 
+  describe('delete flow', () => {
+    const selectTable = (tableName: string) => {
+      navigator.init();
+      const tablesState = navigator.getState() as any;
+      const index = tablesState.tables.findIndex((t: any) => t.name === tableName);
+      assert.ok(index >= 0);
+      
+      while ((navigator.getState() as any).cursor < index) {
+        navigator.moveDown();
+      }
+      
+      while ((navigator.getState() as any).cursor > index) {
+        navigator.moveUp();
+      }
+      
+      navigator.enter();
+      const state = navigator.getState() as any;
+      assert.strictEqual(state.type, 'table-detail');
+      assert.strictEqual(state.tableName, tableName);
+      return state;
+    };
+    
+    it('should require two confirmations before deleting', () => {
+      const state = selectTable('users');
+      const initialTotal = state.totalRows;
+      state.dataCursor = Math.max(0, state.data.length - 1);
+      
+      navigator.requestDelete();
+      let current = navigator.getState() as any;
+      assert.ok(current.deleteConfirm);
+      assert.strictEqual(current.deleteConfirm.step, 1);
+      assert.ok(navigator.hasPendingDelete());
+      
+      navigator.confirmDelete();
+      current = navigator.getState() as any;
+      assert.strictEqual(current.deleteConfirm.step, 2);
+      assert.ok(navigator.hasPendingDelete());
+      
+      navigator.confirmDelete();
+      current = navigator.getState() as any;
+      assert.ok(!current.deleteConfirm);
+      assert.strictEqual(current.totalRows, initialTotal - 1);
+    });
+    
+    it('should allow canceling a delete request', () => {
+      selectTable('users');
+      navigator.requestDelete();
+      let current = navigator.getState() as any;
+      assert.ok(current.deleteConfirm);
+      
+      navigator.cancelDelete();
+      current = navigator.getState() as any;
+      assert.ok(!current.deleteConfirm);
+      assert.strictEqual(navigator.hasPendingDelete(), false);
+    });
+    
+    it('should block deletion when table has no primary key', () => {
+      selectTable('logs');
+      navigator.requestDelete();
+      const current = navigator.getState() as any;
+      assert.ok(!current.deleteConfirm);
+      assert.match(current.notice, /no primary key/i);
+    });
+  });
+  
   describe('back navigation', () => {
     it('should maintain state stack', () => {
       navigator.init();

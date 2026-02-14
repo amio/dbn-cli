@@ -1,4 +1,4 @@
-# dbn
+# dbn - DB Navigator
 
 A lightweight terminal SQLite browser with an ncdu-style interface.
 

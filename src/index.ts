@@ -112,6 +112,25 @@ export class DBPeek {
       return;
     }
 
+    if (key.name === 'y' && this.navigator.hasPendingDelete()) {
+      this.navigator.confirmDelete();
+      this.render();
+      return;
+    }
+
+    if (
+      this.navigator.hasPendingDelete() &&
+      (key.name === 'escape' || key.name === 'h' || key.name === 'left')
+    ) {
+      this.navigator.cancelDelete();
+      this.render();
+      return;
+    }
+
+    if (this.navigator.hasPendingDelete()) {
+      return;
+    }
+
     // Handle different keys
     switch (key.name) {
       case 'q':
@@ -160,6 +179,15 @@ export class DBPeek {
         this.navigator.reload();
         this.render();
         break;
+
+      case 'backspace': {
+        const deleteState = this.navigator.getState();
+        if (deleteState.type === 'table-detail' || deleteState.type === 'row-detail') {
+          this.navigator.requestDelete();
+          this.render();
+        }
+        break;
+      }
 
       case 's':
         // Toggle schema view in full screen mode

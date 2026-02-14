@@ -550,15 +550,31 @@ export class Renderer {
    */
   private buildHelpBar(state: ViewState, width: number): string {
     let help = '';
+    const notice =
+      (state.type === 'table-detail' || state.type === 'row-detail') ? state.notice : undefined;
+    const deleteStep =
+      (state.type === 'table-detail' || state.type === 'row-detail') ? state.deleteConfirm?.step : undefined;
+    const isDeleteConfirm =
+      (state.type === 'table-detail' || state.type === 'row-detail') ? Boolean(state.deleteConfirm) : false;
     
-    if (state.type === 'tables') {
+    if (notice && isDeleteConfirm) {
+      const stepLabel = deleteStep ? `Step ${deleteStep}/2` : '';
+      const actionLabel = deleteStep === 2 ? 'delete' : 'confirm';
+      help = ` ${COLORS.red}${COLORS.bold}${stepLabel ? `${stepLabel} ` : ''}${notice}${COLORS.reset}  ${COLORS.yellow}[y] ${actionLabel}${COLORS.reset}  [h/Esc] cancel`;
+      const paddedHelp = pad(help, width);
+      return paddedHelp;
+    } else if (notice) {
+      help = ` ${COLORS.yellow}${notice}${COLORS.reset}`;
+      const paddedHelp = pad(help, width);
+      return paddedHelp;
+    } else if (state.type === 'tables') {
       help = ' [j/k] select  [Enter/l] open  [i] info  [g/G] top/bottom  [q] quit';
     } else if (state.type === 'table-detail') {
-      help = ' [j/k] scroll  [Enter/l] view row  [s] toggle schema  [h/Esc] back  [q] quit';
+      help = ' [j/k] scroll  [Enter/l] view row  [Backspace] delete  [s] toggle schema  [h/Esc] back  [q] quit';
     } else if (state.type === 'schema-view') {
       help = ' [j/k] scroll  [g/G] top/bottom  [s/h/Esc] back  [q] quit';
     } else if (state.type === 'row-detail') {
-      help = ' [h/Esc] back  [q] quit';
+      help = ' [Backspace] delete  [h/Esc] back  [q] quit';
     } else if (state.type === 'health') {
       help = ' [i] back  [h/Esc] back  [q] quit';
     }

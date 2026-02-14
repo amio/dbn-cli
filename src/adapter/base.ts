@@ -40,6 +40,13 @@ export abstract class DatabaseAdapter {
   abstract getRowCount(tableName: string): number;
 
   /**
+   * Delete a single row from a table by its primary key values
+   * @param tableName - Name of the table
+   * @param keyValues - Primary key column/value mapping
+   */
+  abstract deleteRow(tableName: string, keyValues: Record<string, any>): void;
+
+  /**
    * Get core database health info
    * @returns Health information
    */

@@ -54,6 +54,16 @@ export interface HealthInfo {
 }
 
 /**
+ * Delete confirmation state for write actions
+ */
+export interface DeleteConfirmationState {
+  tableName: string;
+  rowIndex: number;
+  keyValues: Record<string, any>;
+  step: 1 | 2;
+}
+
+/**
  * Base view state properties
  */
 interface BaseViewState {
@@ -83,6 +93,8 @@ export interface TableDetailViewState extends BaseViewState {
   dataCursor: number;
   visibleRows: number;
   showSchema?: boolean;
+  deleteConfirm?: DeleteConfirmationState;
+  notice?: string;
 }
 
 /**
@@ -105,6 +117,8 @@ export interface RowDetailViewState extends BaseViewState {
   row: Record<string, any>;
   rowIndex: number;
   schema: ColumnSchema[];
+  deleteConfirm?: DeleteConfirmationState;
+  notice?: string;
 }
 
 /**
