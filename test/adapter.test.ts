@@ -1,6 +1,6 @@
-import { describe, it, before, after } from 'node:test';
+import { describe, it, beforeAll, afterAll } from 'bun:test';
 import assert from 'node:assert';
-import { DatabaseSync } from 'node:sqlite';
+import { Database } from 'bun:sqlite';
 import { existsSync, unlinkSync } from 'node:fs';
 import { SQLiteAdapter } from '../src/adapter/sqlite.ts';
 
@@ -16,7 +16,7 @@ function setupTestDB(): void {
   }
 
   // Create test database
-  const db = new DatabaseSync(TEST_DB);
+  const db = new Database(TEST_DB);
   
   // Create test tables
   db.exec(`
@@ -65,11 +65,11 @@ function cleanupTestDB(): void {
  * Test suite for SQLiteAdapter
  */
 describe('SQLiteAdapter', () => {
-  before(() => {
+  beforeAll(() => {
     setupTestDB();
   });
 
-  after(() => {
+  afterAll(() => {
     cleanupTestDB();
   });
 

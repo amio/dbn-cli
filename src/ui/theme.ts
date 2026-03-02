@@ -1,58 +1,25 @@
 /**
- * ANSI color codes and styling
+ * Modern color palette for OpenTUI
  */
-export const COLORS = {
-  reset: '\x1b[0m',
-  bold: '\x1b[1m',
-  dim: '\x1b[2m',
-  italic: '\x1b[3m',
-  underline: '\x1b[4m',
-  inverse: '\x1b[7m',
-  
-  // Foreground colors
-  black: '\x1b[30m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  magenta: '\x1b[35m',
-  cyan: '\x1b[36m',
-  white: '\x1b[37m',
-  gray: '\x1b[90m',
-  
-  // Background colors
-  bgBlack: '\x1b[40m',
-  bgRed: '\x1b[41m',
-  bgGreen: '\x1b[42m',
-  bgYellow: '\x1b[43m',
-  bgBlue: '\x1b[44m',
-  bgMagenta: '\x1b[45m',
-  bgCyan: '\x1b[46m',
-  bgWhite: '\x1b[47m',
-} as const;
-
-/**
- * Unicode box drawing characters
- */
-export const BORDERS = {
-  horizontal: '─',
-  vertical: '│',
-  topLeft: '┌',
-  topRight: '┐',
-  bottomLeft: '└',
-  bottomRight: '┘',
-  leftJoin: '├',
-  rightJoin: '┤',
-  topJoin: '┬',
-  bottomJoin: '┴',
-  cross: '┼',
-} as const;
+export const THEME = {
+  background: '#0D0D0D',
+  surface: '#1A1A1A',
+  primary: '#00A0FF', // Brighter Blue
+  secondary: '#A259FF', // Brighter Purple
+  accent: '#FF3B30', // Red
+  text: '#FFFFFF',
+  textDim: '#8E8E93',
+  headerBg: '#2C2C2E',
+  footerBg: '#1C1C1E',
+  selectionBg: '#3A3A3C',
+  success: '#34C759',
+  warning: '#FF9500',
+  error: '#FF3B30',
+};
 
 /**
  * Common UI elements
  */
 export const UI = {
-  cursor: '>',
-  empty: ' ',
   ellipsis: '...',
 } as const;

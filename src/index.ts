@@ -1,11 +1,10 @@
-import { stdin, stdout, exit } from 'node:process';
+import { exit } from 'node:process';
 import { existsSync, readFileSync } from 'node:fs';
-import * as readline from 'node:readline';
 import { SQLiteAdapter } from './adapter/sqlite.ts';
 import { Screen } from './ui/screen.ts';
 import { Renderer } from './ui/renderer.ts';
 import { Navigator } from './ui/navigator.ts';
-import type { KeyPress } from './types.ts';
+import type { KeyEvent } from '@opentui/core';
 
 /**
  * Main application class
@@ -25,7 +24,7 @@ export class DBPeek {
   /**
    * Initialize the application
    */
-  init(): void {
+  async init(): Promise<void> {
     // Validate database file
     if (!existsSync(this.dbPath)) {
       console.error(`Error: Database file not found: ${this.dbPath}`);
@@ -43,6 +42,8 @@ export class DBPeek {
 
     // Initialize UI components
     this.screen = new Screen();
+    await this.screen.enter(); // OpenTUI needs async enter
+
     this.renderer = new Renderer(this.screen);
     this.navigator = new Navigator(this.adapter);
 
@@ -60,14 +61,11 @@ export class DBPeek {
    * Start the application
    */
   start(): void {
-    if (!this.screen || !this.navigator) {
+    if (!this.screen || !this.navigator || !this.screen.renderer) {
       throw new Error('Application not initialized');
     }
 
     this.isRunning = true;
-
-    // Enter full screen mode
-    this.screen.enter();
 
     // Set up keyboard input
     this.setupInput();
@@ -85,25 +83,18 @@ export class DBPeek {
    * Set up keyboard input handling
    */
   private setupInput(): void {
-    // Enable raw mode for key-by-key input
-    stdin.setRawMode(true);
-    stdin.resume();
-    stdin.setEncoding('utf8');
+    if (!this.screen?.renderer) return;
 
-    // Enable keypress events
-    readline.emitKeypressEvents(stdin);
-
-    stdin.on('keypress', (str: string, key: KeyPress) => {
+    this.screen.renderer.keyInput.on('keypress', (key: KeyEvent) => {
       if (!this.isRunning) return;
-
-      this.handleKeypress(str, key);
+      this.handleKeypress(key);
     });
   }
 
   /**
    * Handle keypress events
    */
-  private handleKeypress(str: string, key: KeyPress): void {
+  private handleKeypress(key: KeyEvent): void {
     if (!this.navigator) return;
 
     // Handle Ctrl+C
@@ -253,38 +244,32 @@ export class DBPeek {
     if (this.adapter) {
       this.adapter.close();
     }
-
-    // Restore terminal
-    if (stdin.isTTY) {
-      stdin.setRawMode(false);
-      stdin.pause();
-    }
   }
 }
 
 /**
  * Main entry point
  */
-export function main(args: string[]): void {
+export async function main(args: string[]): Promise<void> {
   // Simple CLI parsing: support flags (-v/--version, -h/--help)
   const flags = new Set(args.filter(a => a.startsWith('-')));
   const dbPath = args.find(a => !a.startsWith('-'));
 
   const printHelp = () => {
-    stdout.write(`Usage: dbn [options] <path-to-sqlite-db-file>\n\n`);
-    stdout.write(`Options:\n`);
-    stdout.write(`  -h, --help       Show help information\n`);
-    stdout.write(`  -v, --version    Show version\n\n`);
-    stdout.write(`Example:\n`);
-    stdout.write(`  dbn ./mydatabase.db\n`);
+    process.stdout.write(`Usage: dbn [options] <path-to-sqlite-db-file>\n\n`);
+    process.stdout.write(`Options:\n`);
+    process.stdout.write(`  -h, --help       Show help information\n`);
+    process.stdout.write(`  -v, --version    Show version\n\n`);
+    process.stdout.write(`Example:\n`);
+    process.stdout.write(`  dbn ./mydatabase.db\n`);
   };
 
   const printVersion = () => {
     try {
       const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version?: string };
-      stdout.write((pkg.version ?? 'unknown') + '\n');
+      process.stdout.write((pkg.version ?? 'unknown') + '\n');
     } catch {
-      stdout.write('unknown\n');
+      process.stdout.write('unknown\n');
     }
   };
 
@@ -312,6 +297,6 @@ export function main(args: string[]): void {
   process.on('exit', () => app.cleanup());
 
   // Initialize and start
-  app.init();
+  await app.init();
   app.start();
 }

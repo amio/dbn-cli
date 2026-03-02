@@ -1,4 +1,4 @@
-#!/usr/bin/env -S node --experimental-strip-types --disable-warning=ExperimentalWarning
+#!/usr/bin/env bun
 
 import { main } from '../src/index.ts';
 
@@ -6,4 +6,7 @@ import { main } from '../src/index.ts';
 const args = process.argv.slice(2);
 
 // Run the application
-main(args);
+main(args).catch(err => {
+  console.error(err);
+  process.exit(1);
+});
