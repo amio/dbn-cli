@@ -245,7 +245,8 @@ export class Renderer {
           // Check data values length (sample first few rows for performance)
           const sampleSize = Math.min(data.length, 20);
           for (let i = 0; i < sampleSize; i++) {
-            const value = formatValue(data[i][col]);
+            // Use 50 as a hint for formatValue during width calculation
+            const value = formatValue(data[i][col], 50);
             maxWidth = Math.max(maxWidth, value.length);
           }
 
@@ -341,7 +342,7 @@ export class Renderer {
         const isSelected = i === dataCursor;
         
         const cells = visibleColumns.map((col, idx) => {
-          const value = formatValue(row[col]);
+          const value = formatValue(row[col], colWidths[idx]);
           return truncate(value, colWidths[idx] - 1);
         });
         
@@ -481,7 +482,7 @@ export class Renderer {
       if (lineCount >= height) break;
       
       const colName = `${COLORS.cyan}${pad(col.name, maxColNameLength)}${COLORS.reset}`;
-      const value = formatValue(row[col.name]);
+      const value = formatValue(row[col.name], valueWidth);
       
       // Truncate value to fit in single line
       const truncatedValue = truncate(value, valueWidth);

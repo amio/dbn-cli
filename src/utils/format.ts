@@ -21,8 +21,16 @@ import stringWidth from 'string-width';
 
 export function truncate(str: string, maxWidth: number): string {
   if (!str) return '';
-  const s = String(str);
+  let s = String(str);
   
+  // Optimization: handle extremely large strings by pre-truncating
+  // A single visible character can't be more than 4 code points (e.g., complex emoji)
+  // and double-width characters count as 2.
+  // So taking maxWidth * 4 characters is a very safe upper bound.
+  if (s.length > maxWidth * 4) {
+    s = s.slice(0, maxWidth * 4);
+  }
+
   const currentWidth = getVisibleWidth(s);
   if (currentWidth <= maxWidth) return s;
   
@@ -103,16 +111,24 @@ export function pad(str: string, targetWidth: number, align: 'left' | 'right' | 
 /**
  * Format a value for display (handle null, undefined, etc.)
  * @param value - Value to format
+ * @param maxLen - Maximum length hint to prevent processing large strings
  * @returns Formatted string
  */
-export function formatValue(value: any): string {
+export function formatValue(value: any, maxLen?: number): string {
   if (value === null) return 'NULL';
   if (value === undefined) return '';
   if (typeof value === 'boolean') return value ? 'true' : 'false';
   if (typeof value === 'object') return JSON.stringify(value);
   
-  // Convert to string and remove control characters (newlines, tabs, etc.)
-  const str = String(value);
+  // Convert to string
+  let str = String(value);
+
+  // Pre-truncate if it's way too long
+  if (maxLen !== undefined && str.length > maxLen * 4) {
+    str = str.slice(0, maxLen * 4);
+  }
+
+  // Remove control characters (newlines, tabs, etc.)
   return str.replace(/[\n\r\t\v\f]/g, ' ').replace(/\s+/g, ' ');
 }
 
