@@ -1,6 +1,6 @@
-import { describe, it, beforeAll, afterAll } from 'bun:test';
+import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
-import { Database } from 'bun:sqlite';
+import { DatabaseSync } from 'node:sqlite';
 import { unlinkSync, existsSync } from 'node:fs';
 import { SQLiteAdapter } from '../src/adapter/sqlite.ts';
 import { Navigator } from '../src/ui/navigator.ts';
@@ -11,9 +11,9 @@ describe('Navigator', () => {
   let adapter: SQLiteAdapter;
   let navigator: Navigator;
 
-  beforeAll(() => {
+  before(() => {
     // Create test database
-    const db = new Database(TEST_DB);
+    const db = new DatabaseSync(TEST_DB);
     
     db.exec(`
       CREATE TABLE users (
@@ -58,7 +58,7 @@ describe('Navigator', () => {
     navigator = new Navigator(adapter);
   });
 
-  afterAll(() => {
+  after(() => {
     adapter.close();
     if (existsSync(TEST_DB)) {
       unlinkSync(TEST_DB);

@@ -1,39 +1,45 @@
+import { stdin, stdout } from 'node:process';
 import { EventEmitter } from 'node:events';
-import { createCliRenderer, type Renderer as OpenTUIRenderer } from '@opentui/core';
 import type { ScreenDimensions } from '../types.ts';
 
 /**
  * Screen manager for full-screen TUI applications
- * Handles OpenTUI renderer lifecycle
+ * Handles alternate screen buffer and terminal state
  */
 export class Screen extends EventEmitter {
-  width: number = 80;
-  height: number = 24;
+  width: number;
+  height: number;
   private isActive: boolean = false;
-  renderer: OpenTUIRenderer | null = null;
+  private resizeHandler?: () => void;
 
   constructor() {
     super();
+    this.width = stdout.columns || 80;
+    this.height = stdout.rows || 24;
   }
 
   /**
-   * Enter alternate screen buffer and set up terminal via OpenTUI
+   * Enter alternate screen buffer and set up terminal
    */
-  async enter(): Promise<void> {
+  enter(): void {
     if (this.isActive) return;
 
-    this.renderer = await createCliRenderer({
-      exitOnCtrlC: false, // We handle it in DBPeek
-    });
+    // Enter alternate screen buffer
+    stdout.write('\x1b[?1049h');
 
-    this.width = this.renderer.width;
-    this.height = this.renderer.height;
+    // Hide cursor
+    stdout.write('\x1b[?25l');
 
-    this.renderer.on('resize', (width, height) => {
-      this.width = width;
-      this.height = height;
-      this.emit('resize', { width, height } as ScreenDimensions);
-    });
+    // Clear screen
+    stdout.write('\x1b[2J\x1b[H');
+
+    // Listen for terminal resize
+    this.resizeHandler = () => {
+      this.width = stdout.columns || 80;
+      this.height = stdout.rows || 24;
+      this.emit('resize', { width: this.width, height: this.height } as ScreenDimensions);
+    };
+    process.on('SIGWINCH', this.resizeHandler);
 
     this.isActive = true;
   }
@@ -42,11 +48,18 @@ export class Screen extends EventEmitter {
    * Exit alternate screen buffer and restore terminal
    */
   exit(): void {
-    if (!this.isActive || !this.renderer) return;
+    if (!this.isActive) return;
 
-    // OpenTUI handles cleanup internally, but we can't manually exit easily in current core version
-    // without just letting the process end or if it had an exit method.
-    // However, createCliRenderer sets up everything.
+    // Show cursor
+    stdout.write('\x1b[?25h');
+
+    // Exit alternate screen buffer
+    stdout.write('\x1b[?1049l');
+
+    // Remove resize listener
+    if (this.resizeHandler) {
+      process.off('SIGWINCH', this.resizeHandler);
+    }
     
     this.isActive = false;
   }
@@ -55,12 +68,34 @@ export class Screen extends EventEmitter {
    * Clear the screen
    */
   clear(): void {
-    // OpenTUI manages clearing and redraws
+    stdout.write('\x1b[2J\x1b[H');
   }
 
   /**
-   * Write text to the screen (Legacy, not used with OpenTUI's declarative API)
+   * Move cursor to specific position
+   * @param row - Row (1-indexed)
+   * @param col - Column (1-indexed)
    */
-  write(_text: string): void {
+  moveCursor(row: number, col: number): void {
+    stdout.write(`\x1b[${row};${col}H`);
+  }
+
+  /**
+   * Write text to the screen
+   * @param text - Text to write
+   */
+  write(text: string): void {
+    stdout.write(text);
+  }
+
+  /**
+   * Write text at specific position
+   * @param row - Row (1-indexed)
+   * @param col - Column (1-indexed)
+   * @param text - Text to write
+   */
+  writeAt(row: number, col: number, text: string): void {
+    this.moveCursor(row, col);
+    this.write(text);
   }
 }

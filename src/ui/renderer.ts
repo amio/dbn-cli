@@ -1,11 +1,11 @@
-import { Box, Text, t, bold, fg, bg, italic, type Renderer as OpenTUIRenderer } from '@opentui/core';
-import { THEME } from './theme.ts';
-import { formatNumber, formatValue, getVisibleWidth } from '../utils/format.ts';
+import { THEME, ANSI } from './theme.ts';
+import { formatNumber, truncate, pad, formatValue, getVisibleWidth } from '../utils/format.ts';
 import type { Screen } from './screen.ts';
 import type { ViewState, TablesViewState, TableDetailViewState, SchemaViewState, RowDetailViewState, HealthViewState } from '../types.ts';
 
 /**
- * Modern Renderer using OpenTUI
+ * Modern Renderer (Manual ANSI Implementation)
+ * Emulates OpenTUI/OpenCode design with color blocks and no lines.
  */
 export class Renderer {
   private screen: Screen;
@@ -15,341 +15,228 @@ export class Renderer {
   }
 
   /**
-   * Render the current state using OpenTUI's declarative system
-   * @param state - Current navigation state
-   * @param dbPath - Database file path
+   * Render the current state to screen
    */
   render(state: ViewState, dbPath: string): void {
-    if (!this.screen.renderer) return;
+    const { width, height } = this.screen;
+    const lines: string[] = [];
 
-    const renderer = this.screen.renderer;
+    // 1. Title Bar (Header Block)
+    lines.push(this.buildTitleBar(state, dbPath, width));
 
-    // We replace all nodes with new ones for simplicity since we're porting
-    // Alternatively, we update specific nodes, but for now we rebuild the root.
-    renderer.root.clear();
+    // 2. Main Content area
+    const contentHeight = height - 2; // 1 for header, 1 for footer
+    const contentLines = this.buildContent(state, contentHeight, width);
+    lines.push(...contentLines);
 
+    // 3. Help/Status Bar (Footer Block)
+    lines.push(this.buildHelpBar(state, width));
+
+    // Clear and render
+    this.screen.clear();
+    this.screen.write(lines.join('\n'));
+  }
+
+  private buildTitleBar(state: ViewState, dbPath: string, width: number): string {
     const fileName = dbPath.split('/').pop() || dbPath;
-    let breadcrumb = fileName;
+    let breadcrumb = ` ${fileName}`;
     
     if (state.type === 'table-detail' || state.type === 'schema-view' || state.type === 'row-detail') {
       breadcrumb += ` > ${state.tableName}`;
     }
-    if (state.type === 'schema-view') {
-      breadcrumb += ` > schema`;
-    }
-    if (state.type === 'row-detail') {
-      breadcrumb += ` > row ${state.rowIndex + 1}`;
-    }
-    if (state.type === 'health') {
-      breadcrumb += ` > health`;
-    }
+    if (state.type === 'schema-view') breadcrumb += ` > schema`;
+    if (state.type === 'row-detail') breadcrumb += ` > row ${state.rowIndex + 1}`;
+    if (state.type === 'health') breadcrumb += ` > health`;
 
-    // Root container
-    const rootBox = Box({
-      flexDirection: 'column',
-      width: '100%',
-      height: '100%',
-      backgroundColor: THEME.background,
-    });
+    const leftPart = `${ANSI.bold}${ANSI.fg(THEME.primary)}${breadcrumb}${ANSI.reset}`;
 
-    // Title Bar
-    const titleBar = Box({
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      width: '100%',
-      height: 1,
-      backgroundColor: THEME.headerBg,
-      paddingX: 1,
-    });
-
-    titleBar.add(Text({
-      content: t` ${bold(breadcrumb)} `,
-      fg: THEME.primary,
-    }));
-
-    titleBar.add(Text({
-      content: this.getRightInfoText(state),
-      fg: THEME.textDim,
-    }));
-
-    rootBox.add(titleBar);
-
-    // Content area
-    const contentBox = Box({
-      flexGrow: 1,
-      width: '100%',
-      paddingX: 0,
-      paddingY: 0,
-    });
-
-    this.buildContent(contentBox, state);
-    rootBox.add(contentBox);
-
-    // Status/Help Bar
-    const helpBar = Box({
-      width: '100%',
-      height: 1,
-      backgroundColor: THEME.footerBg,
-      paddingX: 1,
-    });
-
-    helpBar.add(Text({
-      content: this.getHelpText(state),
-      fg: THEME.textDim,
-    }));
-
-    rootBox.add(helpBar);
-
-    renderer.root.add(rootBox);
-  }
-
-  private getRightInfoText(state: ViewState): string {
+    let rightPart = '';
     if (state.type === 'tables') {
-      return `${state.cursor + 1}/${state.tables.length} tables`;
+      rightPart = `${state.cursor + 1}/${state.tables.length} tables `;
     } else if (state.type === 'table-detail') {
       const current = state.dataOffset + state.dataCursor + 1;
-      return `row ${formatNumber(current)}/${formatNumber(state.totalRows)}`;
+      rightPart = `row ${formatNumber(current)}/${formatNumber(state.totalRows)} `;
     } else if (state.type === 'schema-view') {
-      return `${state.cursor + 1}/${state.schema.length} columns`;
+      rightPart = `${state.cursor + 1}/${state.schema.length} columns `;
     } else if (state.type === 'row-detail') {
-      return `${state.schema.length} fields`;
+      rightPart = `${state.schema.length} fields `;
     }
-    return '';
+
+    const rightPartStyled = `${ANSI.fg(THEME.textDim)}${rightPart}${ANSI.reset}`;
+
+    const leftLen = getVisibleWidth(leftPart);
+    const rightLen = getVisibleWidth(rightPartStyled);
+    const padding = Math.max(0, width - leftLen - rightLen);
+
+    return `${ANSI.bg(THEME.headerBg)}${leftPart}${' '.repeat(padding)}${rightPartStyled}${ANSI.reset}`;
   }
 
-  private getHelpText(state: ViewState): string {
-    if (state.type === 'table-detail' || state.type === 'row-detail') {
-      if (state.notice && state.deleteConfirm) {
-        const step = state.deleteConfirm.step;
-        const action = step === 2 ? 'delete' : 'confirm';
-        return `Step ${step}/2: ${state.notice}  [y] ${action}  [h/Esc] cancel`;
-      }
-      if (state.notice) return state.notice;
-    }
+  private buildContent(state: ViewState, height: number, width: number): string[] {
+    let content: string[] = [];
 
-    switch (state.type) {
-      case 'tables':
-        return ' [j/k] select  [Enter/l] open  [i] info  [g/G] top/bottom  [q] quit';
-      case 'table-detail':
-        return ' [j/k] scroll  [Enter/l] row  [Backsp] del  [s] schema  [h/Esc] back  [q] quit';
-      case 'schema-view':
-        return ' [j/k] scroll  [g/G] top/bottom  [s/h/Esc] back  [q] quit';
-      case 'row-detail':
-        return ' [Backsp] del  [h/Esc] back  [q] quit';
-      case 'health':
-        return ' [i] back  [h/Esc] back  [q] quit';
-    }
-    return '';
-  }
-
-  private buildContent(parent: any, state: ViewState): void {
     if (state.type === 'tables') {
-      this.renderTables(parent, state);
+      content = this.renderTables(state, height, width);
     } else if (state.type === 'table-detail') {
-      this.renderTableDetail(parent, state);
+      content = this.renderTableDetail(state, height, width);
     } else if (state.type === 'schema-view') {
-      this.renderSchema(parent, state);
+      content = this.renderSchema(state, height, width);
     } else if (state.type === 'row-detail') {
-      this.renderRowDetail(parent, state);
+      content = this.renderRowDetail(state, height, width);
     } else if (state.type === 'health') {
-      this.renderHealth(parent, state);
+      content = this.renderHealth(state, height, width);
     }
+
+    // Fill remaining lines with background
+    while (content.length < height) {
+      content.push(`${ANSI.bg(THEME.background)}${' '.repeat(width)}${ANSI.reset}`);
+    }
+    return content;
   }
 
-  private renderTables(parent: any, state: TablesViewState): void {
+  private renderTables(state: TablesViewState, height: number, width: number): string[] {
+    const lines: string[] = [];
     const { tables, cursor } = state;
-    if (tables.length === 0) {
-      parent.add(Text({ content: 'No tables found', fg: THEME.textDim, width: '100%', textAlign: 'center' }));
-      return;
-    }
 
-    const visibleCount = this.screen.height - 3;
-    const half = Math.floor(visibleCount / 2);
+    const half = Math.floor(height / 2);
     let start = Math.max(0, cursor - half);
-    let end = Math.min(tables.length, start + visibleCount);
-    if (end - start < visibleCount) start = Math.max(0, end - visibleCount);
+    let end = Math.min(tables.length, start + height);
+    if (end - start < height) start = Math.max(0, end - height);
 
     for (let i = start; i < end; i++) {
-      const table = tables[i];
       const isSelected = i === cursor;
+      const table = tables[i];
       
-      const row = Box({
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        width: '100%',
-        backgroundColor: isSelected ? THEME.selectionBg : 'transparent',
-        paddingX: 1,
-      });
+      const name = isSelected ? ` ${ANSI.bold}${table.name}` : ` ${table.name}`;
+      const count = `${formatNumber(table.row_count)} rows `;
 
-      row.add(Text({
-        content: isSelected ? t` ${bold(table.name)}` : ` ${table.name}`,
-        fg: isSelected ? THEME.primary : THEME.text,
-      }));
+      const bg = isSelected ? THEME.selectionBg : THEME.background;
+      const fg = isSelected ? THEME.primary : THEME.text;
 
-      row.add(Text({
-        content: t`${formatNumber(table.row_count)} rows `,
-        fg: isSelected ? THEME.primary : THEME.textDim,
-      }));
+      const leftPart = `${ANSI.fg(fg)}${name}${ANSI.reset}`;
+      const rightPart = `${ANSI.fg(isSelected ? fg : THEME.textDim)}${count}${ANSI.reset}`;
 
-      parent.add(row);
+      const padding = width - getVisibleWidth(leftPart) - getVisibleWidth(rightPart);
+      lines.push(`${ANSI.bg(bg)}${leftPart}${' '.repeat(Math.max(0, padding))}${rightPart}${ANSI.reset}`);
     }
+    return lines;
   }
 
-  private renderTableDetail(parent: any, state: TableDetailViewState): void {
+  private renderTableDetail(state: TableDetailViewState, height: number, width: number): string[] {
+    const lines: string[] = [];
     const { data, dataOffset, dataCursor, bufferOffset } = state;
-    if (data.length === 0) {
-      parent.add(Text({ content: 'No data', fg: THEME.textDim, width: '100%', textAlign: 'center', marginTop: 2 }));
-      return;
-    }
 
+    if (data.length === 0) return [pad('No data', width, 'center')];
+
+    // Table Header Block
+    const columns = Object.keys(data[0]).slice(0, 8);
+    const colWidth = Math.floor((width - 2) / columns.length);
+
+    let headerLine = `${ANSI.bg(THEME.surface)}${ANSI.fg(THEME.textDim)}${ANSI.bold} `;
+    columns.forEach(col => {
+      headerLine += pad(col, colWidth - 1).slice(0, colWidth - 1) + ' ';
+    });
+    headerLine += ' '.repeat(width - getVisibleWidth(headerLine)) + ANSI.reset;
+    lines.push(headerLine);
+
+    // Data Rows
     const relativeOffset = dataOffset - bufferOffset;
-    const heightLimit = this.screen.height - 3; // header, footer, table header
-    const displayData = data.slice(relativeOffset, relativeOffset + heightLimit);
+    const displayData = data.slice(relativeOffset, relativeOffset + height - 1);
+    state.visibleRows = height - 1;
 
-    state.visibleRows = heightLimit;
-
-    if (displayData.length === 0) {
-      parent.add(Text({ content: 'No data in range', fg: THEME.textDim, width: '100%', textAlign: 'center', marginTop: 2 }));
-      return;
-    }
-
-    const columns = Object.keys(displayData[0]);
-    const maxVisibleCols = 8;
-    const visibleColumns = columns.slice(0, maxVisibleCols);
-
-    // Calculate optimal column widths
-    const minColWidth = 8;
-    const maxColWidth = 40;
-    const usableWidth = this.screen.width - 2;
-    const spacingWidth = visibleColumns.length - 1;
-    const availableForContent = usableWidth - spacingWidth;
-
-    const idealWidths = visibleColumns.map(col => {
-      let maxWidth = col.length;
-      const sampleSize = Math.min(data.length, 20);
-      for (let i = 0; i < sampleSize; i++) {
-        const value = formatValue(data[i][col], 50);
-        maxWidth = Math.max(maxWidth, value.length);
-      }
-      return Math.max(minColWidth, Math.min(maxWidth + 2, maxColWidth));
-    });
-
-    let totalIdealWidth = idealWidths.reduce((sum, w) => sum + w, 0);
-    let colWidths: number[] = [];
-
-    if (totalIdealWidth <= availableForContent) {
-      const extraSpace = availableForContent - totalIdealWidth;
-      const extraPerCol = Math.floor(extraSpace / visibleColumns.length);
-      colWidths = idealWidths.map(w => w + extraPerCol);
-      colWidths[colWidths.length - 1] += extraSpace - (extraPerCol * visibleColumns.length);
-    } else {
-      const scale = availableForContent / totalIdealWidth;
-      colWidths = idealWidths.map(w => Math.max(minColWidth, Math.floor(w * scale)));
-      const currentTotal = colWidths.reduce((sum, w) => sum + w, 0);
-      colWidths[colWidths.length - 1] += availableForContent - currentTotal;
-    }
-
-    // Header row
-    const headerRow = Box({
-      flexDirection: 'row',
-      width: '100%',
-      backgroundColor: THEME.surface,
-      paddingX: 1,
-    });
-
-    visibleColumns.forEach((col, idx) => {
-      headerRow.add(Text({
-        content: t`${bold(col)}`,
-        width: colWidths[idx],
-        fg: THEME.textDim,
-      }));
-    });
-
-    parent.add(headerRow);
-
-    // Data rows
-    displayData.forEach((rowData, idx) => {
+    displayData.forEach((row, idx) => {
       const isSelected = idx === dataCursor;
-      const rowBox = Box({
-        flexDirection: 'row',
-        width: '100%',
-        backgroundColor: isSelected ? THEME.selectionBg : 'transparent',
-        paddingX: 1,
-      });
+      const rowBg = isSelected ? THEME.selectionBg : THEME.background;
+      const rowFg = isSelected ? THEME.primary : THEME.text;
 
-      visibleColumns.forEach((col, colIdx) => {
-        const val = formatValue(rowData[col], colWidths[colIdx]);
-        rowBox.add(Text({
-          content: val,
-          width: colWidths[colIdx],
-          fg: isSelected ? THEME.primary : THEME.text,
-        }));
+      let line = `${ANSI.bg(rowBg)}${ANSI.fg(rowFg)} `;
+      columns.forEach(col => {
+        const val = formatValue(row[col], colWidth - 1);
+        line += pad(val, colWidth - 1).slice(0, colWidth - 1) + ' ';
       });
-
-      parent.add(rowBox);
+      line += ' '.repeat(width - getVisibleWidth(line)) + ANSI.reset;
+      lines.push(line);
     });
+
+    return lines;
   }
 
-  private renderSchema(parent: any, state: SchemaViewState): void {
+  private renderSchema(state: SchemaViewState, height: number, width: number): string[] {
+    const lines: string[] = [];
     const { schema, cursor } = state;
-    const visibleCount = this.screen.height - 3;
-    let start = Math.max(0, cursor - Math.floor(visibleCount / 2));
-    let end = Math.min(schema.length, start + visibleCount);
-    if (end - start < visibleCount) start = Math.max(0, end - visibleCount);
+
+    const half = Math.floor(height / 2);
+    let start = Math.max(0, cursor - half);
+    let end = Math.min(schema.length, start + height);
+    if (end - start < height) start = Math.max(0, end - height);
 
     for (let i = start; i < end; i++) {
       const col = schema[i];
       const isSelected = i === cursor;
-
-      const row = Box({
-        flexDirection: 'row',
-        width: '100%',
-        backgroundColor: isSelected ? THEME.selectionBg : 'transparent',
-        paddingX: 1,
-      });
-
-      row.add(Text({ content: col.name, width: 25, fg: isSelected ? THEME.primary : THEME.text }));
-      row.add(Text({ content: col.type, width: 15, fg: THEME.secondary }));
+      const rowBg = isSelected ? THEME.selectionBg : THEME.background;
       
+      const name = pad(col.name, 25);
+      const type = pad(col.type, 15);
       const attrs = [];
       if (col.pk) attrs.push('PK');
       if (col.notnull) attrs.push('NOT NULL');
-      if (col.dflt_value !== null) attrs.push(`DEFAULT ${col.dflt_value}`);
       
-      row.add(Text({ content: attrs.join(', '), fg: THEME.textDim, flexGrow: 1 }));
-
-      parent.add(row);
+      let line = `${ANSI.bg(rowBg)} ${ANSI.fg(isSelected ? THEME.primary : THEME.text)}${name}`;
+      line += `${ANSI.fg(THEME.secondary)}${type}`;
+      line += `${ANSI.fg(THEME.textDim)}${attrs.join(', ')}`;
+      line += ' '.repeat(Math.max(0, width - getVisibleWidth(line))) + ANSI.reset;
+      lines.push(line);
     }
+    return lines;
   }
 
-  private renderRowDetail(parent: any, state: RowDetailViewState): void {
+  private renderRowDetail(state: RowDetailViewState, height: number, width: number): string[] {
+    const lines: string[] = [];
     const { row, schema } = state;
-    const scrollBox = Box({ flexDirection: 'column', width: '100%', padding: 1 });
 
-    schema.forEach(col => {
-      const fieldRow = Box({ flexDirection: 'row', marginBottom: 0 });
-      fieldRow.add(Text({ content: col.name, width: 20, fg: THEME.secondary }));
-      fieldRow.add(Text({ content: ': ', fg: THEME.textDim }));
-      fieldRow.add(Text({ content: String(row[col.name]), fg: THEME.text, flexGrow: 1 }));
-      scrollBox.add(fieldRow);
+    schema.forEach((col, idx) => {
+      if (idx >= height) return;
+      const key = `${ANSI.fg(THEME.secondary)}${pad(col.name, 20)}${ANSI.reset}`;
+      const val = `${ANSI.fg(THEME.text)}${formatValue(row[col.name], width - 25)}${ANSI.reset}`;
+      lines.push(`${ANSI.bg(THEME.background)}  ${key} : ${val}${' '.repeat(width)}${ANSI.reset}`.slice(0, width + 50)); // Crude limit
     });
-
-    parent.add(scrollBox);
+    // Fix line width for each
+    return lines.map(l => {
+        const visible = getVisibleWidth(l);
+        if (visible < width) return l + ' '.repeat(width - visible);
+        return l;
+    });
   }
 
-  private renderHealth(parent: any, state: HealthViewState): void {
-    const { info } = state;
-    const entries: Array<[string, any]> = Object.entries(info);
-    const box = Box({ flexDirection: 'column', padding: 1 });
-
-    entries.forEach(([key, val]) => {
-      const row = Box({ flexDirection: 'row' });
-      row.add(Text({ content: key.replace(/_/g, ' '), width: 25, fg: THEME.secondary }));
-      row.add(Text({ content: ': ', fg: THEME.textDim }));
-      row.add(Text({ content: String(val), fg: THEME.text }));
-      box.add(row);
+  private renderHealth(state: HealthViewState, height: number, width: number): string[] {
+    const lines: string[] = [];
+    const entries = Object.entries(state.info);
+    entries.forEach(([key, val], idx) => {
+        if (idx >= height) return;
+        const label = pad(key.replace(/_/g, ' '), 25);
+        lines.push(`${ANSI.bg(THEME.background)} ${ANSI.fg(THEME.secondary)}${label}${ANSI.reset} : ${val}${' '.repeat(width)}${ANSI.reset}`.slice(0, width + 50));
     });
+    return lines.map(l => {
+        const visible = getVisibleWidth(l);
+        if (visible < width) return l + ' '.repeat(width - visible);
+        return l;
+    });
+  }
 
-    parent.add(box);
+  private buildHelpBar(state: ViewState, width: number): string {
+    let helpText = '';
+    if ((state as any).notice) {
+        helpText = ` ${(state as any).notice} `;
+    } else {
+        switch (state.type) {
+            case 'tables': helpText = ' [j/k] select  [Enter/l] open  [i] info  [q] quit'; break;
+            case 'table-detail': helpText = ' [j/k] scroll  [Enter/l] row  [s] schema  [h] back  [q] quit'; break;
+            case 'schema-view': helpText = ' [j/k] scroll  [s/h] back  [q] quit'; break;
+            default: helpText = ' [h] back  [q] quit'; break;
+        }
+    }
+
+    const styledHelp = `${ANSI.fg(THEME.textDim)}${helpText}${ANSI.reset}`;
+    const len = getVisibleWidth(styledHelp);
+    return `${ANSI.bg(THEME.footerBg)}${styledHelp}${' '.repeat(Math.max(0, width - len))}${ANSI.reset}`;
   }
 }

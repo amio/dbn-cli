@@ -1,12 +1,12 @@
-import { Database } from 'bun:sqlite';
+import { DatabaseSync } from 'node:sqlite';
 import { DatabaseAdapter } from './base.ts';
 import type { TableInfo, ColumnSchema, QueryOptions, HealthInfo } from '../types.ts';
 
 /**
- * SQLite adapter using Bun's built-in bun:sqlite
+ * SQLite adapter using Node.js 22+ built-in node:sqlite
  */
 export class SQLiteAdapter extends DatabaseAdapter {
-  private db: Database | null = null;
+  private db: DatabaseSync | null = null;
   private path: string | null = null;
 
   /**
@@ -15,7 +15,7 @@ export class SQLiteAdapter extends DatabaseAdapter {
    */
   connect(path: string): void {
     try {
-      this.db = new Database(path);
+      this.db = new DatabaseSync(path);
       this.path = path;
       // Enable WAL mode for better performance
       this.db.exec('PRAGMA journal_mode = WAL');
@@ -40,11 +40,13 @@ export class SQLiteAdapter extends DatabaseAdapter {
       ORDER BY name
     `;
     
-    const tables = this.db.query(query).all() as { name: string }[];
+    const stmt = this.db.prepare(query);
+    const tables = stmt.all() as { name: string }[];
     
     // Get row count for each table
     return tables.map(table => {
-      const result = this.db.query(`SELECT COUNT(*) as count FROM "${table.name}"`).get() as { count: number };
+      const countStmt = this.db!.prepare(`SELECT COUNT(*) as count FROM "${table.name}"`);
+      const result = countStmt.get() as { count: number };
       return {
         name: table.name,
         row_count: result.count
@@ -62,7 +64,8 @@ export class SQLiteAdapter extends DatabaseAdapter {
       throw new Error('Database not connected');
     }
 
-    return this.db.query(`PRAGMA table_info("${tableName}")`).all() as unknown as ColumnSchema[];
+    const stmt = this.db.prepare(`PRAGMA table_info("${tableName}")`);
+    return stmt.all() as unknown as ColumnSchema[];
   }
 
   /**
@@ -76,7 +79,8 @@ export class SQLiteAdapter extends DatabaseAdapter {
       throw new Error('Database not connected');
     }
 
-    return this.db.query(`SELECT * FROM "${tableName}" LIMIT ? OFFSET ?`).all(limit, offset) as Record<string, any>[];
+    const stmt = this.db.prepare(`SELECT * FROM "${tableName}" LIMIT ? OFFSET ?`);
+    return stmt.all(limit, offset) as Record<string, any>[];
   }
 
   /**
@@ -89,7 +93,8 @@ export class SQLiteAdapter extends DatabaseAdapter {
       throw new Error('Database not connected');
     }
 
-    const result = this.db.query(`SELECT COUNT(*) as count FROM "${tableName}"`).get() as { count: number };
+    const stmt = this.db.prepare(`SELECT COUNT(*) as count FROM "${tableName}"`);
+    const result = stmt.get() as { count: number };
     return result.count;
   }
 
@@ -122,7 +127,8 @@ export class SQLiteAdapter extends DatabaseAdapter {
     }
 
     const whereClause = conditions.join(' AND ');
-    this.db.query(`DELETE FROM "${tableName}" WHERE ${whereClause}`).run(...values);
+    const stmt = this.db.prepare(`DELETE FROM "${tableName}" WHERE ${whereClause}`);
+    stmt.run(...values);
   }
 
   /**
@@ -134,7 +140,8 @@ export class SQLiteAdapter extends DatabaseAdapter {
     }
 
     const singleValue = <T = string>(sql: string): T => {
-      const row = this.db.query(sql).get() as Record<string, any> | undefined;
+      const stmt = this.db!.prepare(sql);
+      const row = stmt.get() as Record<string, any> | undefined;
       if (!row) return '' as T;
       const value = Object.values(row)[0];
       return value as T;
