@@ -174,7 +174,7 @@ export class Navigator {
       // Load table details
       const schema = this.adapter.getTableSchema(selectedTable.name);
       const totalRows = selectedTable.row_count;
-      const data = this.adapter.getTableData(selectedTable.name, { limit: 100, offset: 0 });
+      const data = this.adapter.getTableData(selectedTable.name, { limit: 500, offset: 0 });
       
       const newState: TableDetailViewState = {
         type: 'table-detail',
@@ -184,6 +184,7 @@ export class Navigator {
         totalRows: totalRows,
         dataOffset: 0,
         dataCursor: 0,
+        bufferOffset: 0,
         visibleRows: 20, // Will be updated by renderer
         showSchema: false // Schema display toggle
       };
@@ -396,16 +397,33 @@ export class Navigator {
   /**
    * Reload current view data
    */
-  reload(): void {
+  reload(force: boolean = false): void {
     const state = this.currentState;
     
     if (state && state.type === 'table-detail') {
-      // Reload table data with current offset
-      const loadOffset = Math.max(0, state.dataOffset);
-      state.data = this.adapter.getTableData(state.tableName, { 
-        limit: 100, 
-        offset: loadOffset 
-      });
+      const bufferSize = 500;
+      const currentPos = state.dataOffset + state.dataCursor;
+
+      // Check if we need to reload data
+      const needsReload = force ||
+        state.data.length === 0 ||
+        currentPos < state.bufferOffset ||
+        currentPos >= state.bufferOffset + state.data.length;
+
+      if (needsReload) {
+        // Calculate new buffer offset to keep current view in middle if possible
+        const halfBuffer = Math.floor(bufferSize / 2);
+        const newBufferOffset = Math.max(0, Math.min(
+          currentPos - halfBuffer,
+          state.totalRows - bufferSize
+        ));
+
+        state.data = this.adapter.getTableData(state.tableName, {
+          limit: bufferSize,
+          offset: newBufferOffset
+        });
+        state.bufferOffset = newBufferOffset;
+      }
     }
   }
 
