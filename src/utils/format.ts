@@ -21,25 +21,41 @@ import stringWidth from 'string-width';
 
 export function truncate(str: string, maxWidth: number): string {
   if (!str) return '';
-  const s = String(str);
+  let s = String(str);
   
+  // Optimization: handle extremely large strings by pre-truncating
+  // A single visible character can't be more than 4 code points (e.g., complex emoji)
+  // and double-width characters count as 2.
+  // So taking maxWidth * 4 characters is a very safe upper bound.
+  if (s.length > maxWidth * 4) {
+    s = s.slice(0, maxWidth * 4);
+  }
+
   const currentWidth = getVisibleWidth(s);
   if (currentWidth <= maxWidth) return s;
   
-  // Need to truncate - build string character by character
-  let result = '';
-  let width = 0;
   const ellipsis = '...';
-  const ellipsisWidth = 3; // '...' is 3 single-width chars
+  const ellipsisWidth = 3;
   
-  // Use grapheme-aware widths using string-width
-  for (const ch of Array.from(s)) {
-    const charWidth = stringWidth(ch);
+  if (maxWidth <= ellipsisWidth) {
+    return ellipsis.slice(0, maxWidth);
+  }
 
-    if (width + charWidth + ellipsisWidth > maxWidth) break;
+  // Optimization: for plain ASCII strings, we can use slice directly
+  const isPlainASCII = /^[\x20-\x7E]*$/.test(s);
+  if (isPlainASCII) {
+    return s.slice(0, maxWidth - ellipsisWidth) + ellipsis;
+  }
 
-    result += ch;
-    width += charWidth;
+  // For complex strings, we still need to be careful about double-width characters
+  // but we can optimize by taking a slice that is definitely not too long
+  let result = s.slice(0, maxWidth);
+  while (getVisibleWidth(result) + ellipsisWidth > maxWidth && result.length > 0) {
+    // Remove one character (potentially a multi-byte character or emoji)
+    // Using Array.from to correctly handle surrogate pairs
+    const chars = Array.from(result);
+    chars.pop();
+    result = chars.join('');
   }
   
   return result + ellipsis;
@@ -95,16 +111,24 @@ export function pad(str: string, targetWidth: number, align: 'left' | 'right' | 
 /**
  * Format a value for display (handle null, undefined, etc.)
  * @param value - Value to format
+ * @param maxLen - Maximum length hint to prevent processing large strings
  * @returns Formatted string
  */
-export function formatValue(value: any): string {
+export function formatValue(value: any, maxLen?: number): string {
   if (value === null) return 'NULL';
   if (value === undefined) return '';
   if (typeof value === 'boolean') return value ? 'true' : 'false';
   if (typeof value === 'object') return JSON.stringify(value);
   
-  // Convert to string and remove control characters (newlines, tabs, etc.)
-  const str = String(value);
+  // Convert to string
+  let str = String(value);
+
+  // Pre-truncate if it's way too long
+  if (maxLen !== undefined && str.length > maxLen * 4) {
+    str = str.slice(0, maxLen * 4);
+  }
+
+  // Remove control characters (newlines, tabs, etc.)
   return str.replace(/[\n\r\t\v\f]/g, ' ').replace(/\s+/g, ' ');
 }
 
@@ -125,13 +149,9 @@ function isDoubleWidth(_char: string): boolean {
  * @returns Visible width
  */
 export function getVisibleWidth(str: string): number {
+  if (!str) return 0;
   // Remove ANSI escape codes
   const cleanStr = str.replace(/\x1b\[[0-9;]*m/g, '');
   
-  let width = 0;
-  for (const ch of Array.from(cleanStr)) {
-    width += stringWidth(ch);
-  }
-  
-  return width;
+  return stringWidth(cleanStr);
 }

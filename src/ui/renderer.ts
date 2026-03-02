@@ -205,90 +205,111 @@ export class Renderer {
    */
   private buildTableDetail(state: TableDetailViewState, height: number, width: number): string[] {
     const lines: string[] = [];
-    const { data, totalRows, dataOffset, dataCursor } = state;
+    const { data, totalRows, dataOffset, dataCursor, bufferOffset } = state;
 
     if (data.length === 0) {
       lines.push(pad('No data', width, 'center'));
     } else {
+      // Correct for buffered data: the data array contains bufferOffset..bufferOffset + data.length
+      // We want to display starting from dataOffset
+      const relativeOffset = dataOffset - bufferOffset;
+      const displayData = data.slice(relativeOffset, relativeOffset + height);
+
+      if (displayData.length === 0) {
+        lines.push(pad('No data in this range', width, 'center'));
+        return lines;
+      }
+
       // Get column names
-      const columns = Object.keys(data[0]);
-      
-      // Calculate optimal column widths based on content
-      const minColWidth = 8;
-      const maxColWidth = 50; // Maximum width for any single column
+      const columns = Object.keys(displayData[0]);
       const maxVisibleCols = 8;
       const visibleColumns = columns.slice(0, maxVisibleCols);
-      const availableWidth = width - 4; // Reserve space for padding and cursor
-      const spacingWidth = visibleColumns.length - 1; // Space between columns
-      const usableWidth = availableWidth - spacingWidth;
-      
-      // Calculate ideal width for each column based on content
-      const idealWidths = visibleColumns.map(col => {
-        // Check column name length
-        let maxWidth = col.length;
-        
-        // Check data values length (sample first few rows for performance)
-        const sampleSize = Math.min(data.length, 20);
-        for (let i = 0; i < sampleSize; i++) {
-          const value = formatValue(data[i][col]);
-          maxWidth = Math.max(maxWidth, value.length);
-        }
-        
-        // Apply constraints: add 2 for padding, cap at maxColWidth
-        return Math.max(minColWidth, Math.min(maxWidth + 2, maxColWidth));
-      });
-      
-      // Calculate total ideal width
-      let totalIdealWidth = idealWidths.reduce((sum, w) => sum + w, 0);
-      
-      // Allocate widths
-      const colWidths: number[] = [];
-      
-      if (totalIdealWidth <= usableWidth) {
-        // We have extra space - distribute it intelligently
-        const extraSpace = usableWidth - totalIdealWidth;
-        
-        // Find columns that could use more space (those at maxColWidth)
-        const expandableIndices = idealWidths
-          .map((w, i) => ({ width: w, index: i }))
-          .filter(item => item.width === maxColWidth)
-          .map(item => item.index);
-        
-        // Distribute extra space only to expandable columns
-        if (expandableIndices.length > 0) {
-          const extraPerCol = Math.floor(extraSpace / expandableIndices.length);
-          for (let i = 0; i < visibleColumns.length; i++) {
-            if (expandableIndices.includes(i)) {
-              colWidths[i] = idealWidths[i] + extraPerCol;
-            } else {
-              colWidths[i] = idealWidths[i];
-            }
-          }
-          // Add remainder to last expandable column
-          const remainder = extraSpace - (extraPerCol * expandableIndices.length);
-          colWidths[expandableIndices[expandableIndices.length - 1]] += remainder;
-        } else {
-          // No expandable columns, distribute evenly to all
-          const extraPerCol = Math.floor(extraSpace / visibleColumns.length);
-          for (let i = 0; i < visibleColumns.length; i++) {
-            colWidths[i] = idealWidths[i] + extraPerCol;
-          }
-          const remainder = extraSpace - (extraPerCol * visibleColumns.length);
-          colWidths[colWidths.length - 1] += remainder;
-        }
+
+      // Try to use cached column widths
+      let colWidths: number[];
+      if (state.cachedColWidths && state.cachedScreenWidth === width) {
+        colWidths = state.cachedColWidths;
       } else {
-        // Need to scale down - use proportional scaling
-        const scale = usableWidth / totalIdealWidth;
-        for (let i = 0; i < visibleColumns.length; i++) {
-          colWidths[i] = Math.max(minColWidth, Math.floor(idealWidths[i] * scale));
-        }
+        // Calculate optimal column widths based on content
+        const minColWidth = 8;
+        const maxColWidth = 50; // Maximum width for any single column
+        const availableWidth = width - 4; // Reserve space for padding and cursor
+        const spacingWidth = visibleColumns.length - 1; // Space between columns
+        const usableWidth = availableWidth - spacingWidth;
         
-        // Adjust to fill exact width
-        const totalWidth = colWidths.reduce((sum, w) => sum + w, 0);
-        const diff = usableWidth - totalWidth;
-        if (diff !== 0) {
-          colWidths[colWidths.length - 1] += diff;
+        // Calculate ideal width for each column based on content
+        const idealWidths = visibleColumns.map(col => {
+          // Check column name length
+          let maxWidth = col.length;
+
+          // Check data values length (sample first few rows for performance)
+          const sampleSize = Math.min(data.length, 20);
+          for (let i = 0; i < sampleSize; i++) {
+            // Use 50 as a hint for formatValue during width calculation
+            const value = formatValue(data[i][col], 50);
+            maxWidth = Math.max(maxWidth, value.length);
+          }
+
+          // Apply constraints: add 2 for padding, cap at maxColWidth
+          return Math.max(minColWidth, Math.min(maxWidth + 2, maxColWidth));
+        });
+        
+        // Calculate total ideal width
+        let totalIdealWidth = idealWidths.reduce((sum, w) => sum + w, 0);
+        
+        // Allocate widths
+        colWidths = [];
+        
+        if (totalIdealWidth <= usableWidth) {
+          // We have extra space - distribute it intelligently
+          const extraSpace = usableWidth - totalIdealWidth;
+
+          // Find columns that could use more space (those at maxColWidth)
+          const expandableIndices = idealWidths
+            .map((w, i) => ({ width: w, index: i }))
+            .filter(item => item.width === maxColWidth)
+            .map(item => item.index);
+
+          // Distribute extra space only to expandable columns
+          if (expandableIndices.length > 0) {
+            const extraPerCol = Math.floor(extraSpace / expandableIndices.length);
+            for (let i = 0; i < visibleColumns.length; i++) {
+              if (expandableIndices.includes(i)) {
+                colWidths[i] = idealWidths[i] + extraPerCol;
+              } else {
+                colWidths[i] = idealWidths[i];
+              }
+            }
+            // Add remainder to last expandable column
+            const remainder = extraSpace - (extraPerCol * expandableIndices.length);
+            colWidths[expandableIndices[expandableIndices.length - 1]] += remainder;
+          } else {
+            // No expandable columns, distribute evenly to all
+            const extraPerCol = Math.floor(extraSpace / visibleColumns.length);
+            for (let i = 0; i < visibleColumns.length; i++) {
+              colWidths[i] = idealWidths[i] + extraPerCol;
+            }
+            const remainder = extraSpace - (extraPerCol * visibleColumns.length);
+            colWidths[colWidths.length - 1] += remainder;
+          }
+        } else {
+          // Need to scale down - use proportional scaling
+          const scale = usableWidth / totalIdealWidth;
+          for (let i = 0; i < visibleColumns.length; i++) {
+            colWidths[i] = Math.max(minColWidth, Math.floor(idealWidths[i] * scale));
+          }
+
+          // Adjust to fill exact width
+          const totalWidth = colWidths.reduce((sum, w) => sum + w, 0);
+          const diff = usableWidth - totalWidth;
+          if (diff !== 0) {
+            colWidths[colWidths.length - 1] += diff;
+          }
         }
+
+        // Cache the results
+        state.cachedColWidths = colWidths;
+        state.cachedScreenWidth = width;
       }
       
       // Render table header
@@ -314,14 +335,14 @@ export class Renderer {
       state.visibleRows = height - 1;
       
       // Render data rows
-      const maxRows = Math.min(data.length, height - 1);
+      const maxRows = Math.min(displayData.length, height - 1);
       
       for (let i = 0; i < maxRows; i++) {
-        const row = data[i];
+        const row = displayData[i];
         const isSelected = i === dataCursor;
         
         const cells = visibleColumns.map((col, idx) => {
-          const value = formatValue(row[col]);
+          const value = formatValue(row[col], colWidths[idx]);
           return truncate(value, colWidths[idx] - 1);
         });
         
@@ -461,7 +482,7 @@ export class Renderer {
       if (lineCount >= height) break;
       
       const colName = `${COLORS.cyan}${pad(col.name, maxColNameLength)}${COLORS.reset}`;
-      const value = formatValue(row[col.name]);
+      const value = formatValue(row[col.name], valueWidth);
       
       // Truncate value to fit in single line
       const truncatedValue = truncate(value, valueWidth);

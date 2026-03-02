@@ -91,10 +91,13 @@ export interface TableDetailViewState extends BaseViewState {
   totalRows: number;
   dataOffset: number;
   dataCursor: number;
+  bufferOffset: number;
   visibleRows: number;
   showSchema?: boolean;
   deleteConfirm?: DeleteConfirmationState;
   notice?: string;
+  cachedColWidths?: number[];
+  cachedScreenWidth?: number;
 }
 
 /**
