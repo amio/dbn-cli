@@ -12,7 +12,7 @@
     "test": "node --test --experimental-strip-types test/*.test.ts",
     "test:watch": "node --test --watch --experimental-strip-types test/*.test.ts",
     "test:coverage": "node --test --experimental-test-coverage --experimental-strip-types test/*.test.ts",
-    "dev": "node bin/dbp.ts"
+    "dev": "node bin/dbn.ts"
   },
   "keywords": [
     "database",

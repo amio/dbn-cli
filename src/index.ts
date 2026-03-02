@@ -86,7 +86,9 @@ export class DBPeek {
    */
   private setupInput(): void {
     // Enable raw mode for key-by-key input
-    stdin.setRawMode(true);
+    if (stdin.isTTY) {
+      stdin.setRawMode(true);
+    }
     stdin.resume();
     stdin.setEncoding('utf8');
 

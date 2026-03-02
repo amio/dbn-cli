@@ -26,13 +26,13 @@ export class Screen extends EventEmitter {
 
     // Enter alternate screen buffer
     stdout.write('\x1b[?1049h');
-    
+
     // Hide cursor
     stdout.write('\x1b[?25l');
-    
+
     // Clear screen
     stdout.write('\x1b[2J\x1b[H');
-    
+
     // Listen for terminal resize
     this.resizeHandler = () => {
       this.width = stdout.columns || 80;
@@ -40,7 +40,7 @@ export class Screen extends EventEmitter {
       this.emit('resize', { width: this.width, height: this.height } as ScreenDimensions);
     };
     process.on('SIGWINCH', this.resizeHandler);
-    
+
     this.isActive = true;
   }
 
@@ -52,10 +52,10 @@ export class Screen extends EventEmitter {
 
     // Show cursor
     stdout.write('\x1b[?25h');
-    
+
     // Exit alternate screen buffer
     stdout.write('\x1b[?1049l');
-    
+
     // Remove resize listener
     if (this.resizeHandler) {
       process.off('SIGWINCH', this.resizeHandler);
