@@ -14,6 +14,10 @@ export class Renderer {
     this.screen = screen;
   }
 
+  private drawTransition(width: number, topBg: string, bottomBg: string): string {
+    return `${ANSI.fg(topBg)}${ANSI.bg(bottomBg)}${ANSI.blockUpper.repeat(width)}${ANSI.reset}`;
+  }
+
   /**
    * Render the current state to screen
    */
@@ -23,13 +27,15 @@ export class Renderer {
 
     // 1. Title Bar (Header Block)
     lines.push(this.buildTitleBar(state, dbPath, width));
+    lines.push(this.drawTransition(width, THEME.headerBg, THEME.background));
 
     // 2. Main Content area
-    const contentHeight = height - 2; // 1 for header, 1 for footer
+    const contentHeight = height - 4; // 1 header, 1 footer, 2 transitions
     const contentLines = this.buildContent(state, contentHeight, width);
     lines.push(...contentLines);
 
     // 3. Help/Status Bar (Footer Block)
+    lines.push(this.drawTransition(width, THEME.background, THEME.footerBg));
     lines.push(this.buildHelpBar(state, width));
 
     // Clear and render
@@ -99,8 +105,8 @@ export class Renderer {
 
     const half = Math.floor(height / 2);
     let start = Math.max(0, cursor - half);
-    let end = Math.min(tables.length, start + height);
-    if (end - start < height) start = Math.max(0, end - height);
+    let end = Math.min(tables.length, start + height - 2);
+    if (end - start < height - 2) start = Math.max(0, end - (height - 2));
 
     for (let i = start; i < end; i++) {
       const isSelected = i === cursor;
@@ -116,7 +122,14 @@ export class Renderer {
       const rightPart = `${ANSI.fg(isSelected ? fg : THEME.textDim)}${count}${ANSI.reset}`;
 
       const padding = width - getVisibleWidth(leftPart) - getVisibleWidth(rightPart);
+
+      if (isSelected) {
+        lines.push(this.drawTransition(width, THEME.background, THEME.selectionBg));
+      }
       lines.push(`${ANSI.bg(bg)}${leftPart}${' '.repeat(Math.max(0, padding))}${rightPart}${ANSI.reset}`);
+      if (isSelected) {
+        lines.push(this.drawTransition(width, THEME.selectionBg, THEME.background));
+      }
     }
     return lines;
   }
@@ -137,11 +150,12 @@ export class Renderer {
     });
     headerLine += ' '.repeat(width - getVisibleWidth(headerLine)) + ANSI.reset;
     lines.push(headerLine);
+    lines.push(this.drawTransition(width, THEME.surface, THEME.background));
 
     // Data Rows
     const relativeOffset = dataOffset - bufferOffset;
-    const displayData = data.slice(relativeOffset, relativeOffset + height - 1);
-    state.visibleRows = height - 1;
+    const displayData = data.slice(relativeOffset, relativeOffset + height - 4);
+    state.visibleRows = height - 4;
 
     displayData.forEach((row, idx) => {
       const isSelected = idx === dataCursor;
@@ -154,7 +168,14 @@ export class Renderer {
         line += pad(val, colWidth - 1).slice(0, colWidth - 1) + ' ';
       });
       line += ' '.repeat(width - getVisibleWidth(line)) + ANSI.reset;
+
+      if (isSelected) {
+        lines.push(this.drawTransition(width, THEME.background, THEME.selectionBg));
+      }
       lines.push(line);
+      if (isSelected) {
+        lines.push(this.drawTransition(width, THEME.selectionBg, THEME.background));
+      }
     });
 
     return lines;
@@ -166,8 +187,8 @@ export class Renderer {
 
     const half = Math.floor(height / 2);
     let start = Math.max(0, cursor - half);
-    let end = Math.min(schema.length, start + height);
-    if (end - start < height) start = Math.max(0, end - height);
+    let end = Math.min(schema.length, start + height - 2);
+    if (end - start < height - 2) start = Math.max(0, end - (height - 2));
 
     for (let i = start; i < end; i++) {
       const col = schema[i];
@@ -184,7 +205,14 @@ export class Renderer {
       line += `${ANSI.fg(THEME.secondary)}${type}`;
       line += `${ANSI.fg(THEME.textDim)}${attrs.join(', ')}`;
       line += ' '.repeat(Math.max(0, width - getVisibleWidth(line))) + ANSI.reset;
+
+      if (isSelected) {
+        lines.push(this.drawTransition(width, THEME.background, THEME.selectionBg));
+      }
       lines.push(line);
+      if (isSelected) {
+        lines.push(this.drawTransition(width, THEME.selectionBg, THEME.background));
+      }
     }
     return lines;
   }

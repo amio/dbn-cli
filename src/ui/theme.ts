@@ -15,7 +15,9 @@ export const ANSI = {
   bg: (hex: string) => {
     const { r, g, b } = hexToRgb(hex);
     return `\x1b[48;2;${r};${g};${b}m`;
-  }
+  },
+  blockUpper: '▀',
+  blockLower: '▄',
 };
 
 function hexToRgb(hex: string) {
