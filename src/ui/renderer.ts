@@ -144,13 +144,62 @@ export class Renderer {
 
     if (data.length === 0) return [pad('No data', width, 'center')];
 
-    // Table Header Block
     const columns = Object.keys(data[0]).slice(0, 8);
-    const colWidth = Math.floor((width - 2) / columns.length);
 
+    // Calculate or use cached column widths
+    if (!state.cachedColWidths || state.cachedScreenWidth !== width) {
+      const numCols = columns.length;
+      const innerWidth = width - 2;
+      const minColWidth = 8;
+
+      let colWidths: number[] = [];
+      if (state.columnWeights && state.columnWeights.length >= numCols) {
+        let weights = state.columnWeights.slice(0, numCols);
+
+        // Cap weights to prevent extreme ratios (max 4x average)
+        // This ensures one long field doesn't completely squash others
+        const avgWeight = weights.reduce((a, b) => a + b, 0) / numCols;
+        const maxWeight = avgWeight * 4;
+        weights = weights.map(w => Math.min(w, maxWeight));
+
+        const totalWeight = weights.reduce((a, b) => a + b, 0);
+        const availableWidth = innerWidth - (numCols * minColWidth);
+
+        if (availableWidth > 0) {
+          colWidths = weights.map(w => minColWidth + Math.floor((w / totalWeight) * availableWidth));
+
+          // If totalWeight is 0 (shouldn't happen with min weights), fallback
+          if (totalWeight === 0) {
+            const equalWidth = Math.floor(innerWidth / numCols);
+            colWidths = new Array(numCols).fill(equalWidth);
+          }
+
+          // Distribute rounding remainder to last column
+          const usedWidth = colWidths.reduce((a, b) => a + b, 0);
+          if (usedWidth < innerWidth) {
+            colWidths[colWidths.length - 1] += (innerWidth - usedWidth);
+          }
+        } else {
+          // Fallback to equal distribution if screen is too narrow
+          const equalWidth = Math.floor(innerWidth / numCols);
+          colWidths = new Array(numCols).fill(equalWidth);
+        }
+      } else {
+        const equalWidth = Math.floor(innerWidth / numCols);
+        colWidths = new Array(numCols).fill(equalWidth);
+      }
+
+      state.cachedColWidths = colWidths;
+      state.cachedScreenWidth = width;
+    }
+
+    const colWidths = state.cachedColWidths!;
+
+    // Table Header Block
     let headerContent = `${ANSI.fg(THEME.textDim)}${ANSI.bold}`;
-    columns.forEach(col => {
-      headerContent += pad(col, colWidth - 1).slice(0, colWidth - 1) + ' ';
+    columns.forEach((col, i) => {
+      const w = colWidths[i];
+      headerContent += pad(col, w - 1).slice(0, w - 1) + ' ';
     });
     lines.push(this.renderPanelLine(headerContent, width, THEME.surface));
     lines.push(this.drawTransition(width, THEME.surface, THEME.background));
@@ -166,9 +215,10 @@ export class Renderer {
       const rowFg = isSelected ? THEME.primary : THEME.text;
 
       let rowContent = `${ANSI.fg(rowFg)}`;
-      columns.forEach(col => {
-        const val = formatValue(row[col], colWidth - 1);
-        rowContent += pad(val, colWidth - 1).slice(0, colWidth - 1) + ' ';
+      columns.forEach((col, i) => {
+        const w = colWidths[i];
+        const val = formatValue(row[col], w - 1);
+        rowContent += pad(val, w - 1).slice(0, w - 1) + ' ';
       });
       lines.push(this.renderPanelLine(rowContent, width, rowBg));
     });

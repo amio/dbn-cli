@@ -96,6 +96,7 @@ export interface TableDetailViewState extends BaseViewState {
   showSchema?: boolean;
   deleteConfirm?: DeleteConfirmationState;
   notice?: string;
+  columnWeights?: number[];
   cachedColWidths?: number[];
   cachedScreenWidth?: number;
 }
