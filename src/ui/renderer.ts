@@ -14,6 +14,18 @@ export class Renderer {
     this.screen = screen;
   }
 
+  private drawTransition(width: number, topBg: string, bottomBg: string): string {
+    return `${ANSI.fg(topBg)}${ANSI.bg(bottomBg)}${ANSI.blockUpper.repeat(width)}${ANSI.reset}`;
+  }
+
+  private renderPanelLine(content: string, width: number, bg: string): string {
+    const padding = ' ';
+    const innerWidth = width - 2;
+    const contentLen = getVisibleWidth(content);
+    const fill = ' '.repeat(Math.max(0, innerWidth - contentLen));
+    return `${ANSI.bg(bg)}${padding}${content}${fill}${padding}${ANSI.reset}`;
+  }
+
   /**
    * Render the current state to screen
    */
@@ -21,15 +33,20 @@ export class Renderer {
     const { width, height } = this.screen;
     const lines: string[] = [];
 
+    // Header transition color can match table header if in table-detail
+    const contentTopBg = state.type === 'table-detail' ? THEME.surface : THEME.background;
+
     // 1. Title Bar (Header Block)
     lines.push(this.buildTitleBar(state, dbPath, width));
+    lines.push(this.drawTransition(width, THEME.headerBg, contentTopBg));
 
     // 2. Main Content area
-    const contentHeight = height - 2; // 1 for header, 1 for footer
+    const contentHeight = height - 4; // 1 header, 1 footer, 2 transitions
     const contentLines = this.buildContent(state, contentHeight, width);
     lines.push(...contentLines);
 
     // 3. Help/Status Bar (Footer Block)
+    lines.push(this.drawTransition(width, THEME.background, THEME.footerBg));
     lines.push(this.buildHelpBar(state, width));
 
     // Clear and render
@@ -88,7 +105,7 @@ export class Renderer {
 
     // Fill remaining lines with background
     while (content.length < height) {
-      content.push(`${ANSI.bg(THEME.background)}${' '.repeat(width)}${ANSI.reset}`);
+      content.push(this.renderPanelLine('', width, THEME.background));
     }
     return content;
   }
@@ -106,17 +123,17 @@ export class Renderer {
       const isSelected = i === cursor;
       const table = tables[i];
       
-      const name = isSelected ? ` ${ANSI.bold}${table.name}` : ` ${table.name}`;
-      const count = `${formatNumber(table.row_count)} rows `;
+      const name = isSelected ? `${ANSI.bold}${table.name}` : `${table.name}`;
+      const count = `${formatNumber(table.row_count)} rows`;
 
       const bg = isSelected ? THEME.selectionBg : THEME.background;
       const fg = isSelected ? THEME.primary : THEME.text;
 
-      const leftPart = `${ANSI.fg(fg)}${name}${ANSI.reset}`;
-      const rightPart = `${ANSI.fg(isSelected ? fg : THEME.textDim)}${count}${ANSI.reset}`;
+      const leftPart = `${ANSI.fg(fg)}${name}${ANSI.reset}${ANSI.bg(bg)}`;
+      const rightPart = `${ANSI.fg(isSelected ? fg : THEME.textDim)}${count}${ANSI.reset}${ANSI.bg(bg)}`;
 
-      const padding = width - getVisibleWidth(leftPart) - getVisibleWidth(rightPart);
-      lines.push(`${ANSI.bg(bg)}${leftPart}${' '.repeat(Math.max(0, padding))}${rightPart}${ANSI.reset}`);
+      const rowContent = `${leftPart}${' '.repeat(Math.max(0, width - 2 - getVisibleWidth(leftPart) - getVisibleWidth(rightPart)))}${rightPart}`;
+      lines.push(this.renderPanelLine(rowContent, width, bg));
     }
     return lines;
   }
@@ -131,30 +148,29 @@ export class Renderer {
     const columns = Object.keys(data[0]).slice(0, 8);
     const colWidth = Math.floor((width - 2) / columns.length);
 
-    let headerLine = `${ANSI.bg(THEME.surface)}${ANSI.fg(THEME.textDim)}${ANSI.bold} `;
+    let headerContent = `${ANSI.fg(THEME.textDim)}${ANSI.bold}`;
     columns.forEach(col => {
-      headerLine += pad(col, colWidth - 1).slice(0, colWidth - 1) + ' ';
+      headerContent += pad(col, colWidth - 1).slice(0, colWidth - 1) + ' ';
     });
-    headerLine += ' '.repeat(width - getVisibleWidth(headerLine)) + ANSI.reset;
-    lines.push(headerLine);
+    lines.push(this.renderPanelLine(headerContent, width, THEME.surface));
+    lines.push(this.drawTransition(width, THEME.surface, THEME.background));
 
     // Data Rows
     const relativeOffset = dataOffset - bufferOffset;
-    const displayData = data.slice(relativeOffset, relativeOffset + height - 1);
-    state.visibleRows = height - 1;
+    const displayData = data.slice(relativeOffset, relativeOffset + height - 2);
+    state.visibleRows = height - 2;
 
     displayData.forEach((row, idx) => {
       const isSelected = idx === dataCursor;
       const rowBg = isSelected ? THEME.selectionBg : THEME.background;
       const rowFg = isSelected ? THEME.primary : THEME.text;
 
-      let line = `${ANSI.bg(rowBg)}${ANSI.fg(rowFg)} `;
+      let rowContent = `${ANSI.fg(rowFg)}`;
       columns.forEach(col => {
         const val = formatValue(row[col], colWidth - 1);
-        line += pad(val, colWidth - 1).slice(0, colWidth - 1) + ' ';
+        rowContent += pad(val, colWidth - 1).slice(0, colWidth - 1) + ' ';
       });
-      line += ' '.repeat(width - getVisibleWidth(line)) + ANSI.reset;
-      lines.push(line);
+      lines.push(this.renderPanelLine(rowContent, width, rowBg));
     });
 
     return lines;
@@ -180,11 +196,10 @@ export class Renderer {
       if (col.pk) attrs.push('PK');
       if (col.notnull) attrs.push('NOT NULL');
       
-      let line = `${ANSI.bg(rowBg)} ${ANSI.fg(isSelected ? THEME.primary : THEME.text)}${name}`;
-      line += `${ANSI.fg(THEME.secondary)}${type}`;
-      line += `${ANSI.fg(THEME.textDim)}${attrs.join(', ')}`;
-      line += ' '.repeat(Math.max(0, width - getVisibleWidth(line))) + ANSI.reset;
-      lines.push(line);
+      let rowContent = `${ANSI.fg(isSelected ? THEME.primary : THEME.text)}${name}`;
+      rowContent += `${ANSI.fg(THEME.secondary)}${type}`;
+      rowContent += `${ANSI.fg(THEME.textDim)}${attrs.join(', ')}`;
+      lines.push(this.renderPanelLine(rowContent, width, rowBg));
     }
     return lines;
   }
@@ -195,16 +210,11 @@ export class Renderer {
 
     schema.forEach((col, idx) => {
       if (idx >= height) return;
-      const key = `${ANSI.fg(THEME.secondary)}${pad(col.name, 20)}${ANSI.reset}`;
-      const val = `${ANSI.fg(THEME.text)}${formatValue(row[col.name], width - 25)}${ANSI.reset}`;
-      lines.push(`${ANSI.bg(THEME.background)}  ${key} : ${val}${' '.repeat(width)}${ANSI.reset}`.slice(0, width + 50)); // Crude limit
+      const key = `${ANSI.fg(THEME.secondary)}${pad(col.name, 20)}${ANSI.reset}${ANSI.bg(THEME.background)}`;
+      const val = `${ANSI.fg(THEME.text)}${formatValue(row[col.name], width - 25)}${ANSI.reset}${ANSI.bg(THEME.background)}`;
+      lines.push(this.renderPanelLine(` ${key} : ${val}`, width, THEME.background));
     });
-    // Fix line width for each
-    return lines.map(l => {
-        const visible = getVisibleWidth(l);
-        if (visible < width) return l + ' '.repeat(width - visible);
-        return l;
-    });
+    return lines;
   }
 
   private renderHealth(state: HealthViewState, height: number, width: number): string[] {
@@ -213,30 +223,56 @@ export class Renderer {
     entries.forEach(([key, val], idx) => {
         if (idx >= height) return;
         const label = pad(key.replace(/_/g, ' '), 25);
-        lines.push(`${ANSI.bg(THEME.background)} ${ANSI.fg(THEME.secondary)}${label}${ANSI.reset} : ${val}${' '.repeat(width)}${ANSI.reset}`.slice(0, width + 50));
+        const rowContent = `${ANSI.fg(THEME.secondary)}${label}${ANSI.reset}${ANSI.bg(THEME.background)} : ${val}`;
+        lines.push(this.renderPanelLine(rowContent, width, THEME.background));
     });
-    return lines.map(l => {
-        const visible = getVisibleWidth(l);
-        if (visible < width) return l + ' '.repeat(width - visible);
-        return l;
-    });
+    return lines;
   }
 
   private buildHelpBar(state: ViewState, width: number): string {
-    let helpText = '';
+    let helpItems: { key: string; label: string }[] = [];
     if ((state as any).notice) {
-        helpText = ` ${(state as any).notice} `;
-    } else {
-        switch (state.type) {
-            case 'tables': helpText = ' [j/k] select  [Enter/l] open  [i] info  [q] quit'; break;
-            case 'table-detail': helpText = ' [j/k] scroll  [Enter/l] row  [s] schema  [h] back  [q] quit'; break;
-            case 'schema-view': helpText = ' [j/k] scroll  [s/h] back  [q] quit'; break;
-            default: helpText = ' [h] back  [q] quit'; break;
-        }
+      return `${ANSI.bg(THEME.footerBg)} ${ANSI.fg(THEME.textDim)}${(state as any).notice}${' '.repeat(Math.max(0, width - getVisibleWidth((state as any).notice) - 2))} ${ANSI.reset}`;
     }
 
-    const styledHelp = `${ANSI.fg(THEME.textDim)}${helpText}${ANSI.reset}`;
+    switch (state.type) {
+      case 'tables':
+        helpItems = [
+          { key: 'j/k', label: 'select' },
+          { key: 'Enter/l', label: 'open' },
+          { key: 'i', label: 'info' },
+          { key: 'q', label: 'quit' }
+        ];
+        break;
+      case 'table-detail':
+        helpItems = [
+          { key: 'j/k', label: 'scroll' },
+          { key: 'Enter/l', label: 'row' },
+          { key: 's', label: 'schema' },
+          { key: 'h', label: 'back' },
+          { key: 'q', label: 'quit' }
+        ];
+        break;
+      case 'schema-view':
+        helpItems = [
+          { key: 'j/k', label: 'scroll' },
+          { key: 's/h', label: 'back' },
+          { key: 'q', label: 'quit' }
+        ];
+        break;
+      default:
+        helpItems = [
+          { key: 'h', label: 'back' },
+          { key: 'q', label: 'quit' }
+        ];
+        break;
+    }
+
+    const styledHelp = helpItems
+      .map(item => `${ANSI.fg(THEME.text)}${item.key} ${ANSI.fg(THEME.textDim)}${item.label}`)
+      .join('  ');
     const len = getVisibleWidth(styledHelp);
-    return `${ANSI.bg(THEME.footerBg)}${styledHelp}${' '.repeat(Math.max(0, width - len))}${ANSI.reset}`;
+    const padding = ' '.repeat(Math.max(0, width - len - 2));
+    return `${ANSI.bg(THEME.footerBg)}${padding}${styledHelp}  ${ANSI.reset}`;
   }
 }
