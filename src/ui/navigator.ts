@@ -445,27 +445,28 @@ export class Navigator {
       // 1. Base weight by type
       let typeWeight = 15;
       const type = col.type.toUpperCase();
-      if (type.includes('CHAR') || type.includes('TEXT') || type.includes('CLOB')) {
-        typeWeight = 25;
+      if (type.includes('CHAR') || type.includes('TEXT') || type.includes('CLOB') || type.includes('BLOB')) {
+        typeWeight = 20;
       } else if (type.includes('INT')) {
         typeWeight = 10;
       } else if (type.includes('TIME') || type.includes('DATE')) {
-        typeWeight = 20;
-      } else if (type.includes('BLOB')) {
-        typeWeight = 20;
+        typeWeight = 18;
       }
 
-      // 2. Average width from sample data
+      // 2. Average width from sample data (with cap per row)
       let avgDataWidth = 0;
       if (sampleData.length > 0) {
         const totalWidth = sampleData.reduce((sum, row) => {
-          return sum + getVisibleWidth(formatValue(row[col.name]));
+          // Cap individual row width to 50 to avoid Base64/long text outliers
+          // from skewing the weight calculation for everyone else
+          const valWidth = getVisibleWidth(formatValue(row[col.name]));
+          return sum + Math.min(valWidth, 50);
         }, 0);
         avgDataWidth = totalWidth / sampleData.length;
       }
 
-      // 3. Name width
-      const nameWidth = getVisibleWidth(col.name);
+      // 3. Name width (capped at 20)
+      const nameWidth = Math.min(getVisibleWidth(col.name), 20);
 
       // Final weight is max of all factors
       return Math.max(nameWidth, typeWeight, Math.ceil(avgDataWidth));

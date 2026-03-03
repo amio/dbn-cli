@@ -156,9 +156,10 @@ export class Renderer {
       if (state.columnWeights && state.columnWeights.length >= numCols) {
         let weights = state.columnWeights.slice(0, numCols);
 
-        // Cap weights to prevent extreme ratios (max 3x average)
+        // Cap weights to prevent extreme ratios (max 4x average)
+        // This ensures one long field doesn't completely squash others
         const avgWeight = weights.reduce((a, b) => a + b, 0) / numCols;
-        const maxWeight = avgWeight * 3;
+        const maxWeight = avgWeight * 4;
         weights = weights.map(w => Math.min(w, maxWeight));
 
         const totalWeight = weights.reduce((a, b) => a + b, 0);
@@ -166,6 +167,12 @@ export class Renderer {
 
         if (availableWidth > 0) {
           colWidths = weights.map(w => minColWidth + Math.floor((w / totalWeight) * availableWidth));
+
+          // If totalWeight is 0 (shouldn't happen with min weights), fallback
+          if (totalWeight === 0) {
+            const equalWidth = Math.floor(innerWidth / numCols);
+            colWidths = new Array(numCols).fill(equalWidth);
+          }
 
           // Distribute rounding remainder to last column
           const usedWidth = colWidths.reduce((a, b) => a + b, 0);
