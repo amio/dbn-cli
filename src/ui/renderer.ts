@@ -118,8 +118,8 @@ export class Renderer {
       const bg = isSelected ? THEME.selectionBg : THEME.background;
       const fg = isSelected ? THEME.primary : THEME.text;
 
-      const leftPart = `${ANSI.fg(fg)}${name}${ANSI.reset}`;
-      const rightPart = `${ANSI.fg(isSelected ? fg : THEME.textDim)}${count}${ANSI.reset}`;
+      const leftPart = `${ANSI.fg(fg)}${name}`;
+      const rightPart = `${ANSI.fg(isSelected ? fg : THEME.textDim)}${count}`;
 
       const padding = width - getVisibleWidth(leftPart) - getVisibleWidth(rightPart);
       lines.push(`${ANSI.bg(bg)}${leftPart}${' '.repeat(Math.max(0, padding))}${rightPart}${ANSI.reset}`);
@@ -160,7 +160,7 @@ export class Renderer {
         const val = formatValue(row[col], colWidth - 1);
         line += pad(val, colWidth - 1).slice(0, colWidth - 1) + ' ';
       });
-      line += ' '.repeat(width - getVisibleWidth(line)) + ANSI.reset;
+      line += ' '.repeat(Math.max(0, width - getVisibleWidth(line))) + ANSI.reset;
       lines.push(line);
     });
 
