@@ -93,6 +93,25 @@ export class Navigator {
   }
 
   /**
+   * Move down by one full page
+   */
+  pageDown(): void {
+    const state = this.currentState;
+    if (!state || state.type !== 'table-detail') return;
+
+    const pageSize = state.visibleRows;
+    const maxOffset = Math.max(0, state.totalRows - pageSize);
+
+    if (state.dataOffset < maxOffset) {
+      state.dataOffset = Math.min(maxOffset, state.dataOffset + pageSize);
+      this.reload();
+    } else {
+      // Already at the last page, move cursor to the very last row
+      state.dataCursor = Math.min(state.totalRows - state.dataOffset - 1, pageSize - 1);
+    }
+  }
+
+  /**
    * Jump to top
    */
   jumpToTop(): void {

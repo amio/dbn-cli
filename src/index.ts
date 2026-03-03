@@ -151,6 +151,11 @@ export class DBPeek {
         this.render();
         break;
 
+      case ' ':
+        this.navigator.pageDown();
+        this.render();
+        break;
+
       case 'return':
       case 'l':
       case 'right':

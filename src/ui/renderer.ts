@@ -247,6 +247,7 @@ export class Renderer {
       case 'table-detail':
         helpItems = [
           { key: 'j/k', label: 'scroll' },
+          { key: 'Space', label: 'page' },
           { key: 'Enter/l', label: 'row' },
           { key: 's', label: 'schema' },
           { key: 'h', label: 'back' },

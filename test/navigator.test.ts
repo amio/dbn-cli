@@ -172,6 +172,58 @@ describe('Navigator', () => {
     });
   });
 
+  describe('navigation in table detail view', () => {
+    before(() => {
+      // Setup a table with enough data for pagination
+      const db = new DatabaseSync(TEST_DB);
+      db.exec('CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY)');
+      const insert = db.prepare('INSERT INTO items DEFAULT VALUES');
+      for (let i = 0; i < 50; i++) insert.run();
+      db.close();
+
+      adapter = new SQLiteAdapter();
+      adapter.connect(TEST_DB);
+      navigator = new Navigator(adapter);
+    });
+
+    const enterItemsTable = () => {
+      navigator.init();
+      const tablesState = navigator.getState() as any;
+      const index = tablesState.tables.findIndex((t: any) => t.name === 'items');
+      for (let i = 0; i < index; i++) navigator.moveDown();
+      navigator.enter();
+      const state = navigator.getState() as any;
+      state.visibleRows = 10; // Set a small page size for testing
+    };
+
+    it('should page down', () => {
+      enterItemsTable();
+      const state = navigator.getState() as any;
+      assert.strictEqual(state.dataOffset, 0);
+
+      navigator.pageDown();
+      assert.strictEqual(state.dataOffset, 10);
+
+      navigator.pageDown();
+      assert.strictEqual(state.dataOffset, 20);
+    });
+
+    it('should move cursor to bottom when paging down on last page', () => {
+      enterItemsTable();
+      const state = navigator.getState() as any;
+      const totalRows = state.totalRows;
+      const pageSize = state.visibleRows;
+
+      // Jump to last page
+      state.dataOffset = totalRows - pageSize;
+      state.dataCursor = 0;
+
+      navigator.pageDown();
+      assert.strictEqual(state.dataOffset, totalRows - pageSize);
+      assert.strictEqual(state.dataCursor, pageSize - 1);
+    });
+  });
+
   describe('schema view toggle', () => {
     const enterUsersTable = () => {
       navigator.init();
