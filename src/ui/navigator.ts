@@ -50,6 +50,10 @@ export class Navigator {
       if (state.cursor > 0) {
         state.cursor--;
       }
+    } else if (state.type === 'row-detail') {
+      if (state.scrollOffset > 0) {
+        state.scrollOffset--;
+      }
     } else if (state.type === 'table-detail') {
       if (state.dataCursor > 0) {
         state.dataCursor--;
@@ -76,6 +80,11 @@ export class Navigator {
       if (state.cursor < state.tables.length - 1) {
         state.cursor++;
       }
+    } else if (state.type === 'row-detail') {
+      const maxScroll = Math.max(0, state.totalLines - state.visibleHeight);
+      if (state.scrollOffset < maxScroll) {
+        state.scrollOffset++;
+      }
     } else if (state.type === 'table-detail') {
       const maxCursor = Math.min(state.data.length - 1, state.visibleRows - 1);
       if (state.dataCursor < maxCursor) {
@@ -101,6 +110,8 @@ export class Navigator {
     
     if (state.type === 'tables') {
       state.cursor = 0;
+    } else if (state.type === 'row-detail') {
+      state.scrollOffset = 0;
     } else if (state.type === 'table-detail') {
       state.dataOffset = 0;
       state.dataCursor = 0;
@@ -119,6 +130,8 @@ export class Navigator {
     
     if (state.type === 'tables') {
       state.cursor = state.tables.length - 1;
+    } else if (state.type === 'row-detail') {
+      state.scrollOffset = Math.max(0, state.totalLines - state.visibleHeight);
     } else if (state.type === 'table-detail') {
       const lastPageOffset = Math.max(0, state.totalRows - state.visibleRows);
       state.dataOffset = lastPageOffset;
@@ -202,7 +215,10 @@ export class Navigator {
           tableName: state.tableName,
           row: selectedRow,
           rowIndex: state.dataOffset + state.dataCursor,
-          schema: state.schema
+          schema: state.schema,
+          scrollOffset: 0,
+          totalLines: 0,
+          visibleHeight: 0
         };
         
         this.states.push(newState);

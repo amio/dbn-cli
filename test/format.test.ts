@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { formatNumber, truncate, pad, formatValue, getVisibleWidth } from '../src/utils/format.ts';
+import { formatNumber, truncate, pad, formatValue, getVisibleWidth, wrapText } from '../src/utils/format.ts';
 
 describe('Format Utils', () => {
   describe('formatNumber', () => {
@@ -126,6 +126,44 @@ describe('Format Utils', () => {
     it('should format numbers as strings', () => {
       assert.strictEqual(formatValue(123), '123');
       assert.strictEqual(formatValue(45.67), '45.67');
+    });
+
+    it('should pretty print objects when requested', () => {
+      const obj = { a: 1, b: [2, 3] };
+      const formatted = formatValue(obj, undefined, true);
+      assert.ok(formatted.includes('\n'));
+      assert.ok(formatted.includes('  "a": 1'));
+    });
+
+    it('should preserve newlines when pretty is requested', () => {
+      const str = 'line1\nline2';
+      assert.strictEqual(formatValue(str, undefined, true), str);
+    });
+  });
+
+  describe('wrapText', () => {
+    it('should wrap simple text', () => {
+      const text = 'hello world';
+      const lines = wrapText(text, 5);
+      assert.deepStrictEqual(lines, ['hello', ' worl', 'd']);
+    });
+
+    it('should handle CJK characters', () => {
+      const text = '你好世界';
+      const lines = wrapText(text, 4);
+      assert.deepStrictEqual(lines, ['你好', '世界']);
+    });
+
+    it('should handle existing newlines', () => {
+      const text = 'line1\nline2';
+      const lines = wrapText(text, 10);
+      assert.deepStrictEqual(lines, ['line1', 'line2']);
+    });
+
+    it('should handle empty lines', () => {
+      const text = 'line1\n\nline2';
+      const lines = wrapText(text, 10);
+      assert.deepStrictEqual(lines, ['line1', '', 'line2']);
     });
   });
 

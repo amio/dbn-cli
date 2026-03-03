@@ -1,5 +1,5 @@
 import { THEME, ANSI } from './theme.ts';
-import { formatNumber, truncate, pad, formatValue, getVisibleWidth } from '../utils/format.ts';
+import { formatNumber, truncate, pad, formatValue, getVisibleWidth, wrapText } from '../utils/format.ts';
 import type { Screen } from './screen.ts';
 import type { ViewState, TablesViewState, TableDetailViewState, SchemaViewState, RowDetailViewState, HealthViewState } from '../types.ts';
 
@@ -205,16 +205,33 @@ export class Renderer {
   }
 
   private renderRowDetail(state: RowDetailViewState, height: number, width: number): string[] {
-    const lines: string[] = [];
+    const allLines: string[] = [];
     const { row, schema } = state;
 
-    schema.forEach((col, idx) => {
-      if (idx >= height) return;
-      const key = `${ANSI.fg(THEME.secondary)}${pad(col.name, 20)}${ANSI.reset}${ANSI.bg(THEME.background)}`;
-      const val = `${ANSI.fg(THEME.text)}${formatValue(row[col.name], width - 25)}${ANSI.reset}${ANSI.bg(THEME.background)}`;
-      lines.push(this.renderPanelLine(` ${key} : ${val}`, width, THEME.background));
+    schema.forEach((col) => {
+      // Field Title Line
+      const title = `${ANSI.bold}${ANSI.fg(THEME.secondary)}${col.name}${ANSI.reset}`;
+      allLines.push(this.renderPanelLine(title, width, THEME.surface));
+
+      // Transition from title to content
+      allLines.push(this.drawTransition(width, THEME.surface, THEME.background));
+
+      // Field Value
+      const val = formatValue(row[col.name], undefined, true);
+      const wrappedLines = wrapText(val, width - 2); // 2 for panel padding
+      wrappedLines.forEach(line => {
+        allLines.push(this.renderPanelLine(`${ANSI.fg(THEME.text)}${line}`, width, THEME.background));
+      });
+
+      // Spacing between fields
+      allLines.push(this.renderPanelLine('', width, THEME.background));
     });
-    return lines;
+
+    state.totalLines = allLines.length;
+    state.visibleHeight = height;
+
+    // Apply scroll offset
+    return allLines.slice(state.scrollOffset, state.scrollOffset + height);
   }
 
   private renderHealth(state: HealthViewState, height: number, width: number): string[] {
