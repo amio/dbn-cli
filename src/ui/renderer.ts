@@ -230,20 +230,49 @@ export class Renderer {
   }
 
   private buildHelpBar(state: ViewState, width: number): string {
-    let helpText = '';
+    let helpItems: { key: string; label: string }[] = [];
     if ((state as any).notice) {
-        helpText = ` ${(state as any).notice} `;
-    } else {
-        switch (state.type) {
-            case 'tables': helpText = ' [j/k] select  [Enter/l] open  [i] info  [q] quit'; break;
-            case 'table-detail': helpText = ' [j/k] scroll  [Enter/l] row  [s] schema  [h] back  [q] quit'; break;
-            case 'schema-view': helpText = ' [j/k] scroll  [s/h] back  [q] quit'; break;
-            default: helpText = ' [h] back  [q] quit'; break;
-        }
+      return `${ANSI.bg(THEME.footerBg)} ${ANSI.fg(THEME.textDim)}${(state as any).notice}${' '.repeat(Math.max(0, width - getVisibleWidth((state as any).notice) - 2))} ${ANSI.reset}`;
     }
 
-    const styledHelp = `${ANSI.fg(THEME.textDim)}${helpText}${ANSI.reset}`;
+    switch (state.type) {
+      case 'tables':
+        helpItems = [
+          { key: 'j/k', label: 'select' },
+          { key: 'Enter/l', label: 'open' },
+          { key: 'i', label: 'info' },
+          { key: 'q', label: 'quit' }
+        ];
+        break;
+      case 'table-detail':
+        helpItems = [
+          { key: 'j/k', label: 'scroll' },
+          { key: 'Enter/l', label: 'row' },
+          { key: 's', label: 'schema' },
+          { key: 'h', label: 'back' },
+          { key: 'q', label: 'quit' }
+        ];
+        break;
+      case 'schema-view':
+        helpItems = [
+          { key: 'j/k', label: 'scroll' },
+          { key: 's/h', label: 'back' },
+          { key: 'q', label: 'quit' }
+        ];
+        break;
+      default:
+        helpItems = [
+          { key: 'h', label: 'back' },
+          { key: 'q', label: 'quit' }
+        ];
+        break;
+    }
+
+    const styledHelp = helpItems
+      .map(item => `${ANSI.fg(THEME.text)}${item.key} ${ANSI.fg(THEME.textDim)}${item.label}`)
+      .join('  ');
     const len = getVisibleWidth(styledHelp);
-    return `${ANSI.bg(THEME.footerBg)}${styledHelp}${' '.repeat(Math.max(0, width - len))}${ANSI.reset}`;
+    const padding = ' '.repeat(Math.max(0, width - len - 2));
+    return `${ANSI.bg(THEME.footerBg)}${padding}${styledHelp}  ${ANSI.reset}`;
   }
 }
