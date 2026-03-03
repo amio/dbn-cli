@@ -41,11 +41,12 @@ export class Renderer {
     lines.push(this.drawTransition(width, THEME.headerBg, contentTopBg));
 
     // 2. Main Content area
-    const contentHeight = height - 3; // 1 header, 1 footer, 1 header-transition
+    const contentHeight = height - 4; // 1 header, 1 footer, 2 transitions
     const contentLines = this.buildContent(state, contentHeight, width);
     lines.push(...contentLines);
 
     // 3. Help/Status Bar (Footer Block)
+    lines.push(this.drawTransition(width, THEME.background, THEME.footerBg));
     lines.push(this.buildHelpBar(state, width));
 
     // Clear and render
@@ -231,7 +232,7 @@ export class Renderer {
   private buildHelpBar(state: ViewState, width: number): string {
     let helpItems: { key: string; label: string }[] = [];
     if ((state as any).notice) {
-      return `${ANSI.bg(THEME.background)} ${ANSI.fg(THEME.textDim)}${(state as any).notice}${' '.repeat(Math.max(0, width - getVisibleWidth((state as any).notice) - 2))} ${ANSI.reset}`;
+      return `${ANSI.bg(THEME.footerBg)} ${ANSI.fg(THEME.textDim)}${(state as any).notice}${' '.repeat(Math.max(0, width - getVisibleWidth((state as any).notice) - 2))} ${ANSI.reset}`;
     }
 
     switch (state.type) {
@@ -272,6 +273,6 @@ export class Renderer {
       .join('  ');
     const len = getVisibleWidth(styledHelp);
     const padding = ' '.repeat(Math.max(0, width - len - 2));
-    return `${ANSI.bg(THEME.background)}${padding}${styledHelp}  ${ANSI.reset}`;
+    return `${ANSI.bg(THEME.footerBg)}${padding}${styledHelp}  ${ANSI.reset}`;
   }
 }
