@@ -1,5 +1,6 @@
 import type { DatabaseAdapter } from '../adapter/base.ts';
-import type { ViewState, TablesViewState, TableDetailViewState, SchemaViewState, RowDetailViewState, HealthViewState } from '../types.ts';
+import type { ViewState, TablesViewState, TableDetailViewState, SchemaViewState, RowDetailViewState, HealthViewState, ColumnSchema } from '../types.ts';
+import { getVisibleWidth, formatValue } from '../utils/format.ts';
 
 /**
  * Navigation state manager
@@ -175,6 +176,7 @@ export class Navigator {
       const schema = this.adapter.getTableSchema(selectedTable.name);
       const totalRows = selectedTable.row_count;
       const data = this.adapter.getTableData(selectedTable.name, { limit: 500, offset: 0 });
+      const columnWeights = this.calculateColumnWeights(selectedTable.name, schema, totalRows);
       
       const newState: TableDetailViewState = {
         type: 'table-detail',
@@ -186,7 +188,8 @@ export class Navigator {
         dataCursor: 0,
         bufferOffset: 0,
         visibleRows: 20, // Will be updated by renderer
-        showSchema: false // Schema display toggle
+        showSchema: false, // Schema display toggle
+        columnWeights: columnWeights
       };
       
       this.states.push(newState);
@@ -425,6 +428,48 @@ export class Navigator {
         state.bufferOffset = newBufferOffset;
       }
     }
+  }
+
+  /**
+   * Calculate weights for each column based on type, name and sample data
+   */
+  private calculateColumnWeights(tableName: string, schema: ColumnSchema[], totalRows: number): number[] {
+    // Fetch latest 10 rows for sampling
+    const sampleSize = 10;
+    const sampleData = this.adapter.getTableData(tableName, {
+      limit: sampleSize,
+      offset: Math.max(0, totalRows - sampleSize)
+    });
+
+    return schema.map(col => {
+      // 1. Base weight by type
+      let typeWeight = 15;
+      const type = col.type.toUpperCase();
+      if (type.includes('CHAR') || type.includes('TEXT') || type.includes('CLOB')) {
+        typeWeight = 25;
+      } else if (type.includes('INT')) {
+        typeWeight = 10;
+      } else if (type.includes('TIME') || type.includes('DATE')) {
+        typeWeight = 20;
+      } else if (type.includes('BLOB')) {
+        typeWeight = 20;
+      }
+
+      // 2. Average width from sample data
+      let avgDataWidth = 0;
+      if (sampleData.length > 0) {
+        const totalWidth = sampleData.reduce((sum, row) => {
+          return sum + getVisibleWidth(formatValue(row[col.name]));
+        }, 0);
+        avgDataWidth = totalWidth / sampleData.length;
+      }
+
+      // 3. Name width
+      const nameWidth = getVisibleWidth(col.name);
+
+      // Final weight is max of all factors
+      return Math.max(nameWidth, typeWeight, Math.ceil(avgDataWidth));
+    });
   }
 
   private getPrimaryKeyValues(
