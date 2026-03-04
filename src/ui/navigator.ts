@@ -46,7 +46,7 @@ export class Navigator {
   moveUp(): void {
     const state = this.currentState;
     if (!state) return;
-    
+
     if (state.type === 'tables') {
       if (state.cursor > 0) {
         state.cursor--;
@@ -76,7 +76,7 @@ export class Navigator {
   moveDown(): void {
     const state = this.currentState;
     if (!state) return;
-    
+
     if (state.type === 'tables') {
       if (state.cursor < state.tables.length - 1) {
         state.cursor++;
@@ -108,7 +108,7 @@ export class Navigator {
   jumpToTop(): void {
     const state = this.currentState;
     if (!state) return;
-    
+
     if (state.type === 'tables') {
       state.cursor = 0;
     } else if (state.type === 'row-detail') {
@@ -128,7 +128,7 @@ export class Navigator {
   jumpToBottom(): void {
     const state = this.currentState;
     if (!state) return;
-    
+
     if (state.type === 'tables') {
       state.cursor = state.tables.length - 1;
     } else if (state.type === 'row-detail') {
@@ -168,7 +168,7 @@ export class Navigator {
         cursor: 0,
         scrollOffset: 0
       };
-      
+
       this.states.push(newState);
       this.currentState = newState;
     }
@@ -180,17 +180,17 @@ export class Navigator {
   enter(): void {
     const state = this.currentState;
     if (!state) return;
-    
+
     if (state.type === 'tables') {
       const selectedTable = state.tables[state.cursor];
       if (!selectedTable) return;
-      
+
       // Load table details
       const schema = this.adapter.getTableSchema(selectedTable.name);
       const totalRows = selectedTable.row_count;
       const data = this.adapter.getTableData(selectedTable.name, { limit: 500, offset: 0 });
       const columnWeights = this.calculateColumnWeights(selectedTable.name, schema, totalRows);
-      
+
       const newState: TableDetailViewState = {
         type: 'table-detail',
         tableName: selectedTable.name,
@@ -204,15 +204,13 @@ export class Navigator {
         showSchema: false, // Schema display toggle
         columnWeights: columnWeights
       };
-      
+
       this.states.push(newState);
       this.currentState = newState;
     } else if (state.type === 'table-detail') {
       // Enter row detail view
-      if (state.data.length > 0) {
-        const selectedRow = state.data[state.dataCursor];
-        if (!selectedRow) return;
-        
+      const selectedRow = this.getSelectedRow(state);
+      if (selectedRow) {
         const newState: RowDetailViewState = {
           type: 'row-detail',
           tableName: state.tableName,
@@ -224,7 +222,7 @@ export class Navigator {
           totalLines: 0,
           visibleHeight: 0
         };
-        
+
         this.states.push(newState);
         this.currentState = newState;
       }
@@ -267,6 +265,15 @@ export class Navigator {
     }
   }
 
+  /*
+   * Helper to get the currently selected row from table data buffer
+   */
+  private getSelectedRow(state: TableDetailViewState): Record<string, any> | undefined {
+    if (state.data.length === 0) return undefined;
+    const bufferIndex = state.dataOffset - state.bufferOffset + state.dataCursor;
+    return state.data[bufferIndex];
+  }
+
   /**
    * Go back to previous view
    */
@@ -303,12 +310,7 @@ export class Navigator {
 
     if (state.type === 'table-detail') {
       state.deleteConfirm = undefined;
-      if (state.data.length === 0) {
-        state.notice = 'No row selected';
-        return;
-      }
-
-      const selectedRow = state.data[state.dataCursor];
+      const selectedRow = this.getSelectedRow(state);
       if (!selectedRow) {
         state.notice = 'No row selected';
         return;
@@ -455,7 +457,7 @@ export class Navigator {
    */
   reload(force: boolean = false): void {
     const state = this.currentState;
-    
+
     if (state && state.type === 'table-detail') {
       const bufferSize = 500;
       const currentPos = state.dataOffset + state.dataCursor;
