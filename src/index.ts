@@ -140,12 +140,28 @@ export class DBPeek {
         break;
 
       case 'j':
+        if (this.navigator.getState().type === 'row-detail') {
+          (this.navigator as any).nextRecord();
+        } else {
+          this.navigator.moveDown();
+        }
+        this.render();
+        break;
+
+      case 'k':
+        if (this.navigator.getState().type === 'row-detail') {
+          (this.navigator as any).prevRecord();
+        } else {
+          this.navigator.moveUp();
+        }
+        this.render();
+        break;
+
       case 'down':
         this.navigator.moveDown();
         this.render();
         break;
 
-      case 'k':
       case 'up':
         this.navigator.moveUp();
         this.render();

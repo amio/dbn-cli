@@ -46,10 +46,14 @@ export class Navigator {
   moveUp(): void {
     const state = this.currentState;
     if (!state) return;
-    
+
     if (state.type === 'tables') {
       if (state.cursor > 0) {
         state.cursor--;
+      }
+    } else if (state.type === 'row-detail') {
+      if (state.scrollOffset > 0) {
+        state.scrollOffset--;
       }
     } else if (state.type === 'table-detail') {
       if (state.dataCursor > 0) {
@@ -72,10 +76,15 @@ export class Navigator {
   moveDown(): void {
     const state = this.currentState;
     if (!state) return;
-    
+
     if (state.type === 'tables') {
       if (state.cursor < state.tables.length - 1) {
         state.cursor++;
+      }
+    } else if (state.type === 'row-detail') {
+      const maxScroll = Math.max(0, state.totalLines - state.visibleHeight);
+      if (state.scrollOffset < maxScroll) {
+        state.scrollOffset++;
       }
     } else if (state.type === 'table-detail') {
       const maxCursor = Math.min(state.data.length - 1, state.visibleRows - 1);
@@ -99,9 +108,11 @@ export class Navigator {
   jumpToTop(): void {
     const state = this.currentState;
     if (!state) return;
-    
+
     if (state.type === 'tables') {
       state.cursor = 0;
+    } else if (state.type === 'row-detail') {
+      state.scrollOffset = 0;
     } else if (state.type === 'table-detail') {
       state.dataOffset = 0;
       state.dataCursor = 0;
@@ -117,9 +128,11 @@ export class Navigator {
   jumpToBottom(): void {
     const state = this.currentState;
     if (!state) return;
-    
+
     if (state.type === 'tables') {
       state.cursor = state.tables.length - 1;
+    } else if (state.type === 'row-detail') {
+      state.scrollOffset = Math.max(0, state.totalLines - state.visibleHeight);
     } else if (state.type === 'table-detail') {
       const lastPageOffset = Math.max(0, state.totalRows - state.visibleRows);
       state.dataOffset = lastPageOffset;
@@ -155,7 +168,7 @@ export class Navigator {
         cursor: 0,
         scrollOffset: 0
       };
-      
+
       this.states.push(newState);
       this.currentState = newState;
     }
@@ -167,17 +180,17 @@ export class Navigator {
   enter(): void {
     const state = this.currentState;
     if (!state) return;
-    
+
     if (state.type === 'tables') {
       const selectedTable = state.tables[state.cursor];
       if (!selectedTable) return;
-      
+
       // Load table details
       const schema = this.adapter.getTableSchema(selectedTable.name);
       const totalRows = selectedTable.row_count;
       const data = this.adapter.getTableData(selectedTable.name, { limit: 500, offset: 0 });
       const columnWeights = this.calculateColumnWeights(selectedTable.name, schema, totalRows);
-      
+
       const newState: TableDetailViewState = {
         type: 'table-detail',
         tableName: selectedTable.name,
@@ -191,7 +204,7 @@ export class Navigator {
         showSchema: false, // Schema display toggle
         columnWeights: columnWeights
       };
-      
+
       this.states.push(newState);
       this.currentState = newState;
     } else if (state.type === 'table-detail') {
@@ -203,7 +216,11 @@ export class Navigator {
           tableName: state.tableName,
           row: selectedRow,
           rowIndex: state.dataOffset + state.dataCursor,
-          schema: state.schema
+          totalRows: state.totalRows,
+          schema: state.schema,
+          scrollOffset: 0,
+          totalLines: 0,
+          visibleHeight: 0
         };
 
         this.states.push(newState);
@@ -213,6 +230,42 @@ export class Navigator {
   }
 
   /**
+   * Switch to next record in row-detail view
+   */
+  nextRecord(): void {
+    const state = this.currentState;
+    if (state && state.type === 'row-detail') {
+      if (state.rowIndex < state.totalRows - 1) {
+        state.rowIndex++;
+        // Fetch new row data
+        const data = this.adapter.getTableData(state.tableName, { limit: 1, offset: state.rowIndex });
+        if (data.length > 0) {
+          state.row = data[0];
+          state.scrollOffset = 0;
+        }
+      }
+    }
+  }
+
+  /**
+   * Switch to previous record in row-detail view
+   */
+  prevRecord(): void {
+    const state = this.currentState;
+    if (state && state.type === 'row-detail') {
+      if (state.rowIndex > 0) {
+        state.rowIndex--;
+        // Fetch new row data
+        const data = this.adapter.getTableData(state.tableName, { limit: 1, offset: state.rowIndex });
+        if (data.length > 0) {
+          state.row = data[0];
+          state.scrollOffset = 0;
+        }
+      }
+    }
+  }
+
+  /*
    * Helper to get the currently selected row from table data buffer
    */
   private getSelectedRow(state: TableDetailViewState): Record<string, any> | undefined {
@@ -404,7 +457,7 @@ export class Navigator {
    */
   reload(force: boolean = false): void {
     const state = this.currentState;
-    
+
     if (state && state.type === 'table-detail') {
       const bufferSize = 500;
       const currentPos = state.dataOffset + state.dataCursor;

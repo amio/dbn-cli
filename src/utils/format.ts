@@ -112,16 +112,19 @@ export function pad(str: string, targetWidth: number, align: 'left' | 'right' | 
  * Format a value for display (handle null, undefined, etc.)
  * @param value - Value to format
  * @param maxLen - Maximum length hint to prevent processing large strings
+ * @param pretty - Whether to use pretty printing for objects and preserve newlines
  * @returns Formatted string
  */
-export function formatValue(value: any, maxLen?: number): string {
+export function formatValue(value: any, maxLen?: number, pretty?: boolean): string {
   if (value === null) return 'NULL';
   if (value === undefined) return '';
   if (typeof value === 'boolean') return value ? 'true' : 'false';
-  if (typeof value === 'object') return JSON.stringify(value);
+  if (typeof value === 'object') return JSON.stringify(value, null, pretty ? 2 : undefined);
   
   // Convert to string
   let str = String(value);
+
+  if (pretty) return str;
 
   // Pre-truncate if it's way too long
   if (maxLen !== undefined && str.length > maxLen * 4) {
@@ -130,6 +133,56 @@ export function formatValue(value: any, maxLen?: number): string {
 
   // Remove control characters (newlines, tabs, etc.)
   return str.replace(/[\n\r\t\v\f]/g, ' ').replace(/\s+/g, ' ');
+}
+
+/**
+ * Wrap text into multiple lines based on visible width
+ * @param text - String to wrap
+ * @param maxWidth - Maximum visible width per line
+ * @returns Array of wrapped lines
+ */
+export function wrapText(text: string, maxWidth: number): string[] {
+  if (!text) return [''];
+  if (maxWidth <= 0) return [text];
+
+  const lines: string[] = [];
+  const sourceLines = text.split(/\r?\n/);
+
+  for (const sourceLine of sourceLines) {
+    if (!sourceLine) {
+      lines.push('');
+      continue;
+    }
+
+    let currentLine = '';
+    let currentWidth = 0;
+
+    for (const char of Array.from(sourceLine)) {
+      const charWidth = getVisibleWidth(char);
+
+      if (currentWidth + charWidth > maxWidth) {
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = char;
+          currentWidth = charWidth;
+        } else {
+          // Single character is wider than maxWidth, forced break
+          lines.push(char);
+          currentLine = '';
+          currentWidth = 0;
+        }
+      } else {
+        currentLine += char;
+        currentWidth += charWidth;
+      }
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+  }
+
+  return lines;
 }
 
 /**

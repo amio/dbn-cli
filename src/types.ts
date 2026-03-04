@@ -120,7 +120,11 @@ export interface RowDetailViewState extends BaseViewState {
   tableName: string;
   row: Record<string, any>;
   rowIndex: number;
+  totalRows: number;
   schema: ColumnSchema[];
+  scrollOffset: number;
+  totalLines: number;
+  visibleHeight: number;
   deleteConfirm?: DeleteConfirmationState;
   notice?: string;
 }

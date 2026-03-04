@@ -1,5 +1,5 @@
 import { THEME, ANSI } from './theme.ts';
-import { formatNumber, truncate, pad, formatValue, getVisibleWidth } from '../utils/format.ts';
+import { formatNumber, truncate, pad, formatValue, getVisibleWidth, wrapText } from '../utils/format.ts';
 import type { Screen } from './screen.ts';
 import type { ViewState, TablesViewState, TableDetailViewState, SchemaViewState, RowDetailViewState, HealthViewState } from '../types.ts';
 
@@ -255,16 +255,55 @@ export class Renderer {
   }
 
   private renderRowDetail(state: RowDetailViewState, height: number, width: number): string[] {
-    const lines: string[] = [];
+    const allLines: string[] = [];
     const { row, schema } = state;
+    const innerWidth = width - 2;
 
-    schema.forEach((col, idx) => {
-      if (idx >= height) return;
-      const key = `${ANSI.fg(THEME.secondary)}${pad(col.name, 20)}${ANSI.reset}${ANSI.bg(THEME.background)}`;
-      const val = `${ANSI.fg(THEME.text)}${formatValue(row[col.name], width - 25)}${ANSI.reset}${ANSI.bg(THEME.background)}`;
-      lines.push(this.renderPanelLine(` ${key} : ${val}`, width, THEME.background));
+    // Calculate max label width for alignment
+    let maxLabelWidth = 0;
+    schema.forEach(col => {
+      maxLabelWidth = Math.max(maxLabelWidth, getVisibleWidth(col.name));
     });
-    return lines;
+    const labelPad = maxLabelWidth + 2; // +2 for ": "
+
+    schema.forEach((col) => {
+      const label = `${ANSI.bold}${ANSI.fg(THEME.secondary)}${pad(col.name, maxLabelWidth)}${ANSI.reset}: `;
+      const val = formatValue(row[col.name], undefined, true);
+
+      if (labelPad > innerWidth * 0.4) {
+        // Label too long, fallback to simpler layout
+        const simpleLabel = `${ANSI.bold}${ANSI.fg(THEME.secondary)}${col.name}${ANSI.reset}: `;
+        allLines.push(this.renderPanelLine(simpleLabel, width, THEME.background));
+        const wrappedLines = wrapText(val, innerWidth);
+        wrappedLines.forEach(line => {
+          allLines.push(this.renderPanelLine(`${ANSI.fg(THEME.text)}${line}`, width, THEME.background));
+        });
+      } else {
+        const firstLineMax = innerWidth - labelPad;
+        const wrappedLines = wrapText(val, firstLineMax);
+
+        if (wrappedLines.length === 0 || (wrappedLines.length === 1 && wrappedLines[0] === '')) {
+           allLines.push(this.renderPanelLine(`${label}`, width, THEME.background));
+        } else {
+           allLines.push(this.renderPanelLine(`${label}${ANSI.fg(THEME.text)}${wrappedLines[0]}`, width, THEME.background));
+
+           if (wrappedLines.length > 1) {
+             wrappedLines.slice(1).forEach(line => {
+                allLines.push(this.renderPanelLine(`${' '.repeat(labelPad)}${ANSI.fg(THEME.text)}${line}`, width, THEME.background));
+             });
+           }
+        }
+      }
+
+      // Spacing between fields
+      allLines.push(this.renderPanelLine('', width, THEME.background));
+    });
+
+    state.totalLines = allLines.length;
+    state.visibleHeight = height;
+
+    // Apply scroll offset
+    return allLines.slice(state.scrollOffset, state.scrollOffset + height);
   }
 
   private renderHealth(state: HealthViewState, height: number, width: number): string[] {
@@ -307,6 +346,14 @@ export class Renderer {
         helpItems = [
           { key: 'j/k', label: 'scroll' },
           { key: 's/h', label: 'back' },
+          { key: 'q', label: 'quit' }
+        ];
+        break;
+      case 'row-detail':
+        helpItems = [
+          { key: 'j/k', label: 'switch' },
+          { key: '↑/↓', label: 'scroll' },
+          { key: 'h', label: 'back' },
           { key: 'q', label: 'quit' }
         ];
         break;
