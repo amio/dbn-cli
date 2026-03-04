@@ -2,7 +2,7 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
 import { DatabaseSync } from 'node:sqlite';
 import { existsSync, unlinkSync } from 'node:fs';
-import { SQLiteAdapter } from '../src/adapter/sqlite.ts';
+import { SQLiteAdapter } from '../adapter/sqlite.ts';
 
 const TEST_DB = './test/test.db';
 

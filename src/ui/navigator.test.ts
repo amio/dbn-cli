@@ -2,8 +2,8 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
 import { DatabaseSync } from 'node:sqlite';
 import { unlinkSync, existsSync } from 'node:fs';
-import { SQLiteAdapter } from '../src/adapter/sqlite.ts';
-import { Navigator } from '../src/ui/navigator.ts';
+import { SQLiteAdapter } from '../adapter/sqlite.ts';
+import { Navigator } from '../ui/navigator.ts';
 
 const TEST_DB = './test-navigator.db';
 

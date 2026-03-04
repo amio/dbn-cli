@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { formatNumber, truncate, pad, formatValue, getVisibleWidth, wrapText } from '../src/utils/format.ts';
+import { formatNumber, truncate, pad, formatValue, getVisibleWidth, wrapText } from '../utils/format.ts';
 
 describe('Format Utils', () => {
   describe('formatNumber', () => {

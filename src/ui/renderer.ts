@@ -1,5 +1,6 @@
 import { THEME, ANSI } from './theme.ts';
 import { formatNumber, truncate, pad, formatValue, getVisibleWidth, wrapText } from '../utils/format.ts';
+import { Box, Transition, Grid, type ColumnConfig } from './grit/index.ts';
 import type { Screen } from './screen.ts';
 import type { ViewState, TablesViewState, TableDetailViewState, SchemaViewState, RowDetailViewState, HealthViewState } from '../types.ts';
 
@@ -14,20 +15,6 @@ export class Renderer {
     this.screen = screen;
   }
 
-  private drawTransition(width: number, topBg: string, bottomBg: string): string {
-    return `${ANSI.fg(topBg)}${ANSI.bg(bottomBg)}${ANSI.blockUpper.repeat(width)}${ANSI.reset}`;
-  }
-
-  private renderPanelLine(content: string, width: number, bg: string): string {
-    const padding = ' ';
-    const innerWidth = width - 2;
-    const contentLen = getVisibleWidth(content);
-    const fill = ' '.repeat(Math.max(0, innerWidth - contentLen));
-    // Ensure background color is maintained if content contains resets
-    const safeContent = content.replaceAll(ANSI.reset, ANSI.reset + ANSI.bg(bg));
-    return `${ANSI.bg(bg)}${padding}${safeContent}${fill}${padding}${ANSI.reset}`;
-  }
-
   /**
    * Render the current state to screen
    */
@@ -40,7 +27,7 @@ export class Renderer {
 
     // 1. Title Bar (Header Block)
     lines.push(this.buildTitleBar(state, dbPath, width));
-    lines.push(this.drawTransition(width, THEME.headerBg, contentTopBg));
+    lines.push(Transition.draw(width, THEME.headerBg, contentTopBg));
 
     // 2. Main Content area
     const contentHeight = height - 4; // 1 header, 1 footer, 2 transitions
@@ -48,7 +35,7 @@ export class Renderer {
     lines.push(...contentLines);
 
     // 3. Help/Status Bar (Footer Block)
-    lines.push(this.drawTransition(width, THEME.background, THEME.footerBg));
+    lines.push(Transition.draw(width, THEME.background, THEME.footerBg));
     lines.push(this.buildHelpBar(state, width));
 
     // Clear and render
@@ -71,31 +58,28 @@ export class Renderer {
 
     let rightPart = '';
     if (state.type === 'tables') {
-      rightPart = `${state.cursor + 1}/${state.tables.length} tables `;
+      rightPart = `${state.cursor + 1}/${state.tables.length} tables`;
     } else if (state.type === 'table-detail') {
       const current = state.dataOffset + state.dataCursor + 1;
-      rightPart = `row ${formatNumber(current)}/${formatNumber(state.totalRows)} `;
+      rightPart = `row ${formatNumber(current)}/${formatNumber(state.totalRows)}`;
     } else if (state.type === 'schema-view') {
-      rightPart = `${state.cursor + 1}/${state.schema.length} columns `;
+      rightPart = `${state.cursor + 1}/${state.schema.length} columns`;
     } else if (state.type === 'row-detail') {
-      rightPart = `${state.schema.length} fields `;
+      rightPart = `${state.schema.length} fields`;
     }
 
     const rightPartStyled = `${ANSI.fg(THEME.textDim)}${rightPart}${ANSI.reset}`;
 
-    const leftLen = getVisibleWidth(leftPart);
-    const rightLen = getVisibleWidth(rightPartStyled);
-    const padding = Math.max(0, width - leftLen - rightLen);
+    const padding = ' '.repeat(Math.max(0, width - 2 - getVisibleWidth(leftPart) - getVisibleWidth(rightPartStyled)));
+    const rowContent = `${leftPart}${padding}${rightPartStyled}`;
 
-    const bg = THEME.headerBg;
-    const safeLeft = leftPart.replaceAll(ANSI.reset, ANSI.reset + ANSI.bg(bg));
-    const safeRight = rightPartStyled.replaceAll(ANSI.reset, ANSI.reset + ANSI.bg(bg));
-
-    return `${ANSI.bg(bg)}${safeLeft}${' '.repeat(padding)}${safeRight}${ANSI.reset}`;
+    const box = new Box({ width, padding: 1, background: THEME.headerBg });
+    return box.render(rowContent);
   }
 
   private buildContent(state: ViewState, height: number, width: number): string[] {
     let content: string[] = [];
+    const bgBox = new Box({ width, background: THEME.background, padding: 1 });
 
     if (state.type === 'tables') {
       content = this.renderTables(state, height, width);
@@ -111,7 +95,7 @@ export class Renderer {
 
     // Fill remaining lines with background
     while (content.length < height) {
-      content.push(this.renderPanelLine('', width, THEME.background));
+      content.push(bgBox.render(''));
     }
     return content;
   }
@@ -119,6 +103,7 @@ export class Renderer {
   private renderTables(state: TablesViewState, height: number, width: number): string[] {
     const lines: string[] = [];
     const { tables, cursor } = state;
+    const box = new Box({ width, padding: 1 });
 
     const half = Math.floor(height / 2);
     let start = Math.max(0, cursor - half);
@@ -135,11 +120,12 @@ export class Renderer {
       const bg = isSelected ? THEME.selectionBg : THEME.background;
       const fg = isSelected ? THEME.primary : THEME.text;
 
-      const leftPart = `${ANSI.fg(fg)}${name}${ANSI.reset}${ANSI.bg(bg)}`;
-      const rightPart = `${ANSI.fg(isSelected ? fg : THEME.textDim)}${count}${ANSI.reset}${ANSI.bg(bg)}`;
+      const leftPart = `${ANSI.fg(fg)}${name}${ANSI.reset}`;
+      const rightPart = `${ANSI.fg(isSelected ? fg : THEME.textDim)}${count}${ANSI.reset}`;
 
-      const rowContent = `${leftPart}${' '.repeat(Math.max(0, width - 2 - getVisibleWidth(leftPart) - getVisibleWidth(rightPart)))}${rightPart}`;
-      lines.push(this.renderPanelLine(rowContent, width, bg));
+      const padding = ' '.repeat(Math.max(0, width - 2 - getVisibleWidth(leftPart) - getVisibleWidth(rightPart)));
+      const rowContent = `${leftPart}${padding}${rightPart}`;
+      lines.push(box.render(rowContent, { background: bg }));
     }
     return lines;
   }
@@ -147,55 +133,23 @@ export class Renderer {
   private renderTableDetail(state: TableDetailViewState, height: number, width: number): string[] {
     const lines: string[] = [];
     const { data, dataOffset, dataCursor, bufferOffset } = state;
+    const box = new Box({ width, padding: 1 });
 
-    if (data.length === 0) return [pad('No data', width, 'center')];
+    if (data.length === 0) return [box.render('No data', { align: 'center' })];
 
     const columns = Object.keys(data[0]).slice(0, 8);
 
     // Calculate or use cached column widths
     if (!state.cachedColWidths || state.cachedScreenWidth !== width) {
       const numCols = columns.length;
-      const innerWidth = width - 2;
       const minColWidth = 8;
 
-      let colWidths: number[] = [];
-      if (state.columnWeights && state.columnWeights.length >= numCols) {
-        let weights = state.columnWeights.slice(0, numCols);
+      const configs: ColumnConfig[] = columns.map((_, i) => ({
+        weight: (state.columnWeights && state.columnWeights[i]) || 1,
+        minWidth: minColWidth
+      }));
 
-        // Cap weights to prevent extreme ratios (max 4x average)
-        // This ensures one long field doesn't completely squash others
-        const avgWeight = weights.reduce((a, b) => a + b, 0) / numCols;
-        const maxWeight = avgWeight * 4;
-        weights = weights.map(w => Math.min(w, maxWeight));
-
-        const totalWeight = weights.reduce((a, b) => a + b, 0);
-        const availableWidth = innerWidth - (numCols * minColWidth);
-
-        if (availableWidth > 0) {
-          colWidths = weights.map(w => minColWidth + Math.floor((w / totalWeight) * availableWidth));
-
-          // If totalWeight is 0 (shouldn't happen with min weights), fallback
-          if (totalWeight === 0) {
-            const equalWidth = Math.floor(innerWidth / numCols);
-            colWidths = new Array(numCols).fill(equalWidth);
-          }
-
-          // Distribute rounding remainder to last column
-          const usedWidth = colWidths.reduce((a, b) => a + b, 0);
-          if (usedWidth < innerWidth) {
-            colWidths[colWidths.length - 1] += (innerWidth - usedWidth);
-          }
-        } else {
-          // Fallback to equal distribution if screen is too narrow
-          const equalWidth = Math.floor(innerWidth / numCols);
-          colWidths = new Array(numCols).fill(equalWidth);
-        }
-      } else {
-        const equalWidth = Math.floor(innerWidth / numCols);
-        colWidths = new Array(numCols).fill(equalWidth);
-      }
-
-      state.cachedColWidths = colWidths;
+      state.cachedColWidths = Grid.calculateWidths(width - 2, configs);
       state.cachedScreenWidth = width;
     }
 
@@ -207,8 +161,8 @@ export class Renderer {
       const w = colWidths[i];
       headerContent += pad(col, w - 1).slice(0, w - 1) + ' ';
     });
-    lines.push(this.renderPanelLine(headerContent, width, THEME.surface));
-    lines.push(this.drawTransition(width, THEME.surface, THEME.background));
+    lines.push(box.render(headerContent, { background: THEME.surface }));
+    lines.push(Transition.draw(width, THEME.surface, THEME.background));
 
     // Data Rows
     const relativeOffset = dataOffset - bufferOffset;
@@ -226,7 +180,7 @@ export class Renderer {
         const val = formatValue(row[col], w - 1);
         rowContent += pad(val, w - 1).slice(0, w - 1) + ' ';
       });
-      lines.push(this.renderPanelLine(rowContent, width, rowBg));
+      lines.push(box.render(rowContent, { background: rowBg }));
     });
 
     return lines;
@@ -235,6 +189,7 @@ export class Renderer {
   private renderSchema(state: SchemaViewState, height: number, width: number): string[] {
     const lines: string[] = [];
     const { schema, cursor } = state;
+    const box = new Box({ width, padding: 1 });
 
     const half = Math.floor(height / 2);
     let start = Math.max(0, cursor - half);
@@ -255,7 +210,7 @@ export class Renderer {
       let rowContent = `${ANSI.fg(isSelected ? THEME.primary : THEME.text)}${name}`;
       rowContent += `${ANSI.fg(THEME.secondary)}${type}`;
       rowContent += `${ANSI.fg(THEME.textDim)}${attrs.join(', ')}`;
-      lines.push(this.renderPanelLine(rowContent, width, rowBg));
+      lines.push(box.render(rowContent, { background: rowBg }));
     }
     return lines;
   }
@@ -264,6 +219,7 @@ export class Renderer {
     const allLines: string[] = [];
     const { row, schema } = state;
     const innerWidth = width - 2;
+    const box = new Box({ width, padding: 1, background: THEME.background });
 
     // Calculate max label width for alignment
     let maxLabelWidth = 0;
@@ -279,23 +235,23 @@ export class Renderer {
       if (labelPad > innerWidth * 0.4) {
         // Label too long, fallback to simpler layout
         const simpleLabel = `${ANSI.bold}${ANSI.fg(THEME.secondary)}${col.name}${ANSI.reset}: `;
-        allLines.push(this.renderPanelLine(simpleLabel, width, THEME.background));
+        allLines.push(box.render(simpleLabel));
         const wrappedLines = wrapText(val, innerWidth);
         wrappedLines.forEach(line => {
-          allLines.push(this.renderPanelLine(`${ANSI.fg(THEME.text)}${line}`, width, THEME.background));
+          allLines.push(box.render(`${ANSI.fg(THEME.text)}${line}`));
         });
       } else {
         const firstLineMax = innerWidth - labelPad;
         const wrappedLines = wrapText(val, firstLineMax);
 
         if (wrappedLines.length === 0 || (wrappedLines.length === 1 && wrappedLines[0] === '')) {
-           allLines.push(this.renderPanelLine(`${label}`, width, THEME.background));
+           allLines.push(box.render(`${label}`));
         } else {
-           allLines.push(this.renderPanelLine(`${label}${ANSI.fg(THEME.text)}${wrappedLines[0]}`, width, THEME.background));
+           allLines.push(box.render(`${label}${ANSI.fg(THEME.text)}${wrappedLines[0]}`));
 
            if (wrappedLines.length > 1) {
              wrappedLines.slice(1).forEach(line => {
-                allLines.push(this.renderPanelLine(`${' '.repeat(labelPad)}${ANSI.fg(THEME.text)}${line}`, width, THEME.background));
+                allLines.push(box.render(`${' '.repeat(labelPad)}${ANSI.fg(THEME.text)}${line}`));
              });
            }
         }
@@ -312,21 +268,25 @@ export class Renderer {
   private renderHealth(state: HealthViewState, height: number, width: number): string[] {
     const lines: string[] = [];
     const entries = Object.entries(state.info);
+    const box = new Box({ width, padding: 1, background: THEME.background });
+
     entries.forEach(([key, val], idx) => {
         if (idx >= height) return;
         const label = pad(key.replace(/_/g, ' '), 25);
-        const rowContent = `${ANSI.fg(THEME.secondary)}${label}${ANSI.reset}${ANSI.bg(THEME.background)} : ${val}`;
-        lines.push(this.renderPanelLine(rowContent, width, THEME.background));
+        const rowContent = `${ANSI.fg(THEME.secondary)}${label}${ANSI.reset} : ${val}`;
+        lines.push(box.render(rowContent));
     });
     return lines;
   }
 
   private buildHelpBar(state: ViewState, width: number): string {
-    let helpItems: { key: string; label: string }[] = [];
+    const box = new Box({ width, padding: 1, background: THEME.footerBg });
+
     if ((state as any).notice) {
-      return `${ANSI.bg(THEME.footerBg)} ${ANSI.fg(THEME.textDim)}${(state as any).notice}${' '.repeat(Math.max(0, width - getVisibleWidth((state as any).notice) - 2))} ${ANSI.reset}`;
+      return box.render(`${ANSI.fg(THEME.textDim)}${(state as any).notice}`);
     }
 
+    let helpItems: { key: string; label: string }[] = [];
     switch (state.type) {
       case 'tables':
         helpItems = [
@@ -371,8 +331,7 @@ export class Renderer {
     const styledHelp = helpItems
       .map(item => `${ANSI.fg(THEME.text)}${item.key} ${ANSI.fg(THEME.textDim)}${item.label}`)
       .join('  ');
-    const len = getVisibleWidth(styledHelp);
-    const padding = ' '.repeat(Math.max(0, width - len - 2));
-    return `${ANSI.bg(THEME.footerBg)}${padding}${styledHelp}  ${ANSI.reset}`;
+
+    return box.render(styledHelp, { align: 'right' });
   }
 }
