@@ -3,7 +3,7 @@ import { test, expect } from '@microsoft/tui-test';
 test('Grit visual components', async ({ terminal }) => {
   // Use node to run the test app
   // Using experimental-strip-types for simplicity
-  terminal.submit('node --experimental-strip-types src/ui/grit/test-app.ts');
+  terminal.submit('node --experimental-strip-types test/e2e/grit.fixture.ts');
 
   // Wait for the render
   await expect(terminal.getByText('GRIT TEST APP')).toBeVisible();

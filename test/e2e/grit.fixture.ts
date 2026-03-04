@@ -1,4 +1,4 @@
-import { Box, Transition, Grid } from './index.ts';
+import { Box, Transition, Grid } from '../../src/ui/grit/index.ts';
 
 const width = 40;
 const height = 10;

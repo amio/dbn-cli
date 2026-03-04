@@ -4,6 +4,7 @@ test('Main application smoke test', async ({ terminal }) => {
   // Run the app with a sample db
   // Increase terminal size to ensure content is visible
   terminal.resize(100, 30);
+  // Path is relative to repo root
   terminal.submit('node --experimental-strip-types bin/dbn.ts test.db');
 
   // Should see the breadcrumb/title bar
