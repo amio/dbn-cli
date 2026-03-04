@@ -196,10 +196,8 @@ export class Navigator {
       this.currentState = newState;
     } else if (state.type === 'table-detail') {
       // Enter row detail view
-      if (state.data.length > 0) {
-        const selectedRow = state.data[state.dataCursor];
-        if (!selectedRow) return;
-        
+      const selectedRow = this.getSelectedRow(state);
+      if (selectedRow) {
         const newState: RowDetailViewState = {
           type: 'row-detail',
           tableName: state.tableName,
@@ -207,11 +205,20 @@ export class Navigator {
           rowIndex: state.dataOffset + state.dataCursor,
           schema: state.schema
         };
-        
+
         this.states.push(newState);
         this.currentState = newState;
       }
     }
+  }
+
+  /**
+   * Helper to get the currently selected row from table data buffer
+   */
+  private getSelectedRow(state: TableDetailViewState): Record<string, any> | undefined {
+    if (state.data.length === 0) return undefined;
+    const bufferIndex = state.dataOffset - state.bufferOffset + state.dataCursor;
+    return state.data[bufferIndex];
   }
 
   /**
@@ -250,12 +257,7 @@ export class Navigator {
 
     if (state.type === 'table-detail') {
       state.deleteConfirm = undefined;
-      if (state.data.length === 0) {
-        state.notice = 'No row selected';
-        return;
-      }
-
-      const selectedRow = state.data[state.dataCursor];
+      const selectedRow = this.getSelectedRow(state);
       if (!selectedRow) {
         state.notice = 'No row selected';
         return;
