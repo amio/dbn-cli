@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Box, Transition, Grid, ANSI } from '../src/ui/grit/index.ts';
+import { Box, Transition, Grid, ANSI } from './index.ts';
 
 test('Grid.calculateWidths distributes widths correctly', () => {
   const widths = Grid.calculateWidths(100, [

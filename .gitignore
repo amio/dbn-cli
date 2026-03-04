@@ -5,3 +5,6 @@ test/assets/*.db-shm
 test/assets/*.db-wal
 example.db*
 unicode-test.db*
+.tui-test/
+*.db-shm
+*.db-wal
