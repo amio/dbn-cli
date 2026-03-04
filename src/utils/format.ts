@@ -158,7 +158,7 @@ export function wrapText(text: string, maxWidth: number): string[] {
     let currentWidth = 0;
 
     for (const char of Array.from(sourceLine)) {
-      const charWidth = stringWidth(char);
+      const charWidth = getVisibleWidth(char);
 
       if (currentWidth + charWidth > maxWidth) {
         if (currentLine) {

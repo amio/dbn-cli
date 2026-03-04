@@ -207,21 +207,45 @@ export class Renderer {
   private renderRowDetail(state: RowDetailViewState, height: number, width: number): string[] {
     const allLines: string[] = [];
     const { row, schema } = state;
+    const innerWidth = width - 2;
 
     schema.forEach((col) => {
-      // Field Title Line
-      const title = `${ANSI.bold}${ANSI.fg(THEME.secondary)}${col.name}${ANSI.reset}`;
-      allLines.push(this.renderPanelLine(title, width, THEME.surface));
-
-      // Transition from title to content
-      allLines.push(this.drawTransition(width, THEME.surface, THEME.background));
-
-      // Field Value
+      const label = `${ANSI.bold}${ANSI.fg(THEME.secondary)}${col.name}${ANSI.reset}: `;
+      const labelWidth = getVisibleWidth(label);
       const val = formatValue(row[col.name], undefined, true);
-      const wrappedLines = wrapText(val, width - 2); // 2 for panel padding
-      wrappedLines.forEach(line => {
-        allLines.push(this.renderPanelLine(`${ANSI.fg(THEME.text)}${line}`, width, THEME.background));
-      });
+
+      if (labelWidth > innerWidth * 0.4) {
+        // Label too long, put value on next line
+        allLines.push(this.renderPanelLine(label, width, THEME.background));
+        const wrappedLines = wrapText(val, innerWidth);
+        wrappedLines.forEach(line => {
+          allLines.push(this.renderPanelLine(`${ANSI.fg(THEME.text)}${line}`, width, THEME.background));
+        });
+      } else {
+        // Normal label: value layout
+        const firstLineMax = innerWidth - labelWidth;
+        const wrappedLines = wrapText(val, innerWidth);
+
+        if (wrappedLines.length === 1 && getVisibleWidth(wrappedLines[0]) <= firstLineMax) {
+          // Fits on one line
+          allLines.push(this.renderPanelLine(`${label}${ANSI.fg(THEME.text)}${wrappedLines[0]}`, width, THEME.background));
+        } else {
+          // Multi-line value
+          const valueLines = wrapText(val, innerWidth);
+          // Try to fit the first part after the label
+          const firstPart = wrapText(val, firstLineMax)[0];
+          allLines.push(this.renderPanelLine(`${label}${ANSI.fg(THEME.text)}${firstPart}`, width, THEME.background));
+
+          // The rest indented
+          const restVal = val.slice(firstPart.length).trim();
+          if (restVal) {
+             const indentedWrapped = wrapText(restVal, innerWidth - labelWidth);
+             indentedWrapped.forEach(line => {
+                allLines.push(this.renderPanelLine(`${' '.repeat(labelWidth)}${ANSI.fg(THEME.text)}${line}`, width, THEME.background));
+             });
+          }
+        }
+      }
 
       // Spacing between fields
       allLines.push(this.renderPanelLine('', width, THEME.background));
