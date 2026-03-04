@@ -215,6 +215,7 @@ export class Navigator {
           tableName: state.tableName,
           row: selectedRow,
           rowIndex: state.dataOffset + state.dataCursor,
+          totalRows: state.totalRows,
           schema: state.schema,
           scrollOffset: 0,
           totalLines: 0,
@@ -223,6 +224,42 @@ export class Navigator {
         
         this.states.push(newState);
         this.currentState = newState;
+      }
+    }
+  }
+
+  /**
+   * Switch to next record in row-detail view
+   */
+  nextRecord(): void {
+    const state = this.currentState;
+    if (state && state.type === 'row-detail') {
+      if (state.rowIndex < state.totalRows - 1) {
+        state.rowIndex++;
+        // Fetch new row data
+        const data = this.adapter.getTableData(state.tableName, { limit: 1, offset: state.rowIndex });
+        if (data.length > 0) {
+          state.row = data[0];
+          state.scrollOffset = 0;
+        }
+      }
+    }
+  }
+
+  /**
+   * Switch to previous record in row-detail view
+   */
+  prevRecord(): void {
+    const state = this.currentState;
+    if (state && state.type === 'row-detail') {
+      if (state.rowIndex > 0) {
+        state.rowIndex--;
+        // Fetch new row data
+        const data = this.adapter.getTableData(state.tableName, { limit: 1, offset: state.rowIndex });
+        if (data.length > 0) {
+          state.row = data[0];
+          state.scrollOffset = 0;
+        }
       }
     }
   }

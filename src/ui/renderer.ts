@@ -209,41 +209,39 @@ export class Renderer {
     const { row, schema } = state;
     const innerWidth = width - 2;
 
+    // Calculate max label width for alignment
+    let maxLabelWidth = 0;
+    schema.forEach(col => {
+      maxLabelWidth = Math.max(maxLabelWidth, getVisibleWidth(col.name));
+    });
+    const labelPad = maxLabelWidth + 2; // +2 for ": "
+
     schema.forEach((col) => {
-      const label = `${ANSI.bold}${ANSI.fg(THEME.secondary)}${col.name}${ANSI.reset}: `;
-      const labelWidth = getVisibleWidth(label);
+      const label = `${ANSI.bold}${ANSI.fg(THEME.secondary)}${pad(col.name, maxLabelWidth)}${ANSI.reset}: `;
       const val = formatValue(row[col.name], undefined, true);
 
-      if (labelWidth > innerWidth * 0.4) {
-        // Label too long, put value on next line
-        allLines.push(this.renderPanelLine(label, width, THEME.background));
+      if (labelPad > innerWidth * 0.4) {
+        // Label too long, fallback to simpler layout
+        const simpleLabel = `${ANSI.bold}${ANSI.fg(THEME.secondary)}${col.name}${ANSI.reset}: `;
+        allLines.push(this.renderPanelLine(simpleLabel, width, THEME.background));
         const wrappedLines = wrapText(val, innerWidth);
         wrappedLines.forEach(line => {
           allLines.push(this.renderPanelLine(`${ANSI.fg(THEME.text)}${line}`, width, THEME.background));
         });
       } else {
-        // Normal label: value layout
-        const firstLineMax = innerWidth - labelWidth;
-        const wrappedLines = wrapText(val, innerWidth);
+        const firstLineMax = innerWidth - labelPad;
+        const wrappedLines = wrapText(val, firstLineMax);
 
-        if (wrappedLines.length === 1 && getVisibleWidth(wrappedLines[0]) <= firstLineMax) {
-          // Fits on one line
-          allLines.push(this.renderPanelLine(`${label}${ANSI.fg(THEME.text)}${wrappedLines[0]}`, width, THEME.background));
+        if (wrappedLines.length === 0 || (wrappedLines.length === 1 && wrappedLines[0] === '')) {
+           allLines.push(this.renderPanelLine(`${label}`, width, THEME.background));
         } else {
-          // Multi-line value
-          const valueLines = wrapText(val, innerWidth);
-          // Try to fit the first part after the label
-          const firstPart = wrapText(val, firstLineMax)[0];
-          allLines.push(this.renderPanelLine(`${label}${ANSI.fg(THEME.text)}${firstPart}`, width, THEME.background));
+           allLines.push(this.renderPanelLine(`${label}${ANSI.fg(THEME.text)}${wrappedLines[0]}`, width, THEME.background));
 
-          // The rest indented
-          const restVal = val.slice(firstPart.length).trim();
-          if (restVal) {
-             const indentedWrapped = wrapText(restVal, innerWidth - labelWidth);
-             indentedWrapped.forEach(line => {
-                allLines.push(this.renderPanelLine(`${' '.repeat(labelWidth)}${ANSI.fg(THEME.text)}${line}`, width, THEME.background));
+           if (wrappedLines.length > 1) {
+             wrappedLines.slice(1).forEach(line => {
+                allLines.push(this.renderPanelLine(`${' '.repeat(labelPad)}${ANSI.fg(THEME.text)}${line}`, width, THEME.background));
              });
-          }
+           }
         }
       }
 
@@ -298,6 +296,14 @@ export class Renderer {
         helpItems = [
           { key: 'j/k', label: 'scroll' },
           { key: 's/h', label: 'back' },
+          { key: 'q', label: 'quit' }
+        ];
+        break;
+      case 'row-detail':
+        helpItems = [
+          { key: 'j/k', label: 'switch' },
+          { key: '↑/↓', label: 'scroll' },
+          { key: 'h', label: 'back' },
           { key: 'q', label: 'quit' }
         ];
         break;
