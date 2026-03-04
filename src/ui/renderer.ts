@@ -23,7 +23,9 @@ export class Renderer {
     const innerWidth = width - 2;
     const contentLen = getVisibleWidth(content);
     const fill = ' '.repeat(Math.max(0, innerWidth - contentLen));
-    return `${ANSI.bg(bg)}${padding}${content}${fill}${padding}${ANSI.reset}`;
+    // Ensure background color is maintained if content contains resets
+    const safeContent = content.replaceAll(ANSI.reset, ANSI.reset + ANSI.bg(bg));
+    return `${ANSI.bg(bg)}${padding}${safeContent}${fill}${padding}${ANSI.reset}`;
   }
 
   /**
@@ -85,7 +87,11 @@ export class Renderer {
     const rightLen = getVisibleWidth(rightPartStyled);
     const padding = Math.max(0, width - leftLen - rightLen);
 
-    return `${ANSI.bg(THEME.headerBg)}${leftPart}${' '.repeat(padding)}${rightPartStyled}${ANSI.reset}`;
+    const bg = THEME.headerBg;
+    const safeLeft = leftPart.replaceAll(ANSI.reset, ANSI.reset + ANSI.bg(bg));
+    const safeRight = rightPartStyled.replaceAll(ANSI.reset, ANSI.reset + ANSI.bg(bg));
+
+    return `${ANSI.bg(bg)}${safeLeft}${' '.repeat(padding)}${safeRight}${ANSI.reset}`;
   }
 
   private buildContent(state: ViewState, height: number, width: number): string[] {
@@ -294,9 +300,6 @@ export class Renderer {
            }
         }
       }
-
-      // Spacing between fields
-      allLines.push(this.renderPanelLine('', width, THEME.background));
     });
 
     state.totalLines = allLines.length;
