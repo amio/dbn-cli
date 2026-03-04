@@ -209,43 +209,26 @@ export class Renderer {
     const { row, schema } = state;
     const innerWidth = width - 2;
 
-    // Calculate max label width for alignment
-    let maxLabelWidth = 0;
-    schema.forEach(col => {
-      maxLabelWidth = Math.max(maxLabelWidth, getVisibleWidth(col.name));
-    });
-    const labelPad = maxLabelWidth + 2; // +2 for ": "
-
     schema.forEach((col) => {
-      const label = `${ANSI.bold}${ANSI.fg(THEME.secondary)}${pad(col.name, maxLabelWidth)}${ANSI.reset}: `;
-      const val = formatValue(row[col.name], undefined, true);
+      // 1. Label Line
+      const label = `${ANSI.bold}${ANSI.fg(THEME.secondary)}${col.name}${ANSI.reset}`;
+      allLines.push(this.renderPanelLine(label, width, THEME.surface));
 
-      if (labelPad > innerWidth * 0.4) {
-        // Label too long, fallback to simpler layout
-        const simpleLabel = `${ANSI.bold}${ANSI.fg(THEME.secondary)}${col.name}${ANSI.reset}: `;
-        allLines.push(this.renderPanelLine(simpleLabel, width, THEME.background));
-        const wrappedLines = wrapText(val, innerWidth);
+      // 2. Transition
+      allLines.push(this.drawTransition(width, THEME.surface, THEME.background));
+
+      // 3. Value Lines
+      const val = formatValue(row[col.name], undefined, true);
+      const wrappedLines = wrapText(val, innerWidth);
+      if (wrappedLines.length === 0 || (wrappedLines.length === 1 && wrappedLines[0] === '')) {
+        allLines.push(this.renderPanelLine(`${ANSI.fg(THEME.textDim)}NULL`, width, THEME.background));
+      } else {
         wrappedLines.forEach(line => {
           allLines.push(this.renderPanelLine(`${ANSI.fg(THEME.text)}${line}`, width, THEME.background));
         });
-      } else {
-        const firstLineMax = innerWidth - labelPad;
-        const wrappedLines = wrapText(val, firstLineMax);
-
-        if (wrappedLines.length === 0 || (wrappedLines.length === 1 && wrappedLines[0] === '')) {
-           allLines.push(this.renderPanelLine(`${label}`, width, THEME.background));
-        } else {
-           allLines.push(this.renderPanelLine(`${label}${ANSI.fg(THEME.text)}${wrappedLines[0]}`, width, THEME.background));
-
-           if (wrappedLines.length > 1) {
-             wrappedLines.slice(1).forEach(line => {
-                allLines.push(this.renderPanelLine(`${' '.repeat(labelPad)}${ANSI.fg(THEME.text)}${line}`, width, THEME.background));
-             });
-           }
-        }
       }
 
-      // Spacing between fields
+      // 4. Spacing
       allLines.push(this.renderPanelLine('', width, THEME.background));
     });
 

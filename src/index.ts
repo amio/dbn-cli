@@ -141,7 +141,7 @@ export class DBPeek {
 
       case 'j':
         if (this.navigator.getState().type === 'row-detail') {
-          (this.navigator as any).nextRecord();
+          this.navigator.nextRecord();
         } else {
           this.navigator.moveDown();
         }
@@ -150,7 +150,7 @@ export class DBPeek {
 
       case 'k':
         if (this.navigator.getState().type === 'row-detail') {
-          (this.navigator as any).prevRecord();
+          this.navigator.prevRecord();
         } else {
           this.navigator.moveUp();
         }
