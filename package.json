@@ -1,6 +1,6 @@
 {
   "name": "dbn-cli",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "A lightweight terminal-based database browser",
   "repository": "https://github.com/amio/dbn-cli",
   "type": "module",
@@ -12,7 +12,7 @@
     "test": "node --test --experimental-strip-types src/**/*.test.ts src/*.test.ts",
     "test:watch": "node --test --watch --experimental-strip-types src/**/*.test.ts src/*.test.ts",
     "test:coverage": "node --test --experimental-test-coverage --experimental-strip-types src/**/*.test.ts src/*.test.ts",
-    "test:e2e": "tui-test",
+    "test:e2e": "node --test --experimental-strip-types test/e2e/*.spec.ts",
     "dev": "node bin/dbn.ts"
   },
   "keywords": [
@@ -33,8 +33,9 @@
     "src/"
   ],
   "devDependencies": {
-    "@microsoft/tui-test": "^0.0.1-rc.5",
-    "@types/node": "^24.10.9"
+    "@types/node": "^24.10.9",
+    "@xterm/headless": "^6.0.0",
+    "node-pty": "^1.1.0"
   },
   "dependencies": {
     "string-width": "^5.0.1"
