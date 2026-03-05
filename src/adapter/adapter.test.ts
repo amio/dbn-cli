@@ -183,4 +183,23 @@ describe('SQLiteAdapter', () => {
     const adapter = new SQLiteAdapter();
     assert.doesNotThrow(() => adapter.close(), 'Should not throw when closing unconnected adapter');
   });
+
+  it('should delete a row', () => {
+    const adapter = new SQLiteAdapter();
+    adapter.connect(TEST_DB);
+
+    const initialCount = adapter.getRowCount('users');
+    const user = adapter.getTableData('users', { limit: 1, offset: 0 })[0];
+    assert.ok(user.id, 'User should have an id');
+
+    adapter.deleteRow('users', { id: user.id });
+
+    const newCount = adapter.getRowCount('users');
+    assert.strictEqual(newCount, initialCount - 1, 'Row count should decrease by 1');
+
+    const remainingUsers = adapter.getTableData('users');
+    assert.ok(!remainingUsers.find(u => u.id === user.id), 'Deleted user should not be in results');
+
+    adapter.close();
+  });
 });

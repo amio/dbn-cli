@@ -7,7 +7,7 @@ import { Navigator } from './ui/navigator.ts';
 
 const REPRO_DB = './repro-bug.db';
 
-describe('Navigator Bug Reproduction', () => {
+describe('Navigator Bug Reproduction & Edge Cases', () => {
   let adapter: SQLiteAdapter;
   let navigator: Navigator;
 
@@ -50,11 +50,6 @@ describe('Navigator Bug Reproduction', () => {
 
     // Move down 30 times.
     // Default visibleRows is 20, so this should push dataOffset to 11 (if cursor hits bottom at 19)
-    // Actually, moveDown increments cursor until 19, then increments dataOffset.
-    // 0 -> 19 (20 steps), then 10 more steps increments dataOffset to 10.
-    // dataCursor = 19, dataOffset = 11? No, 0 to 19 is 19 steps.
-    // 30 steps total: 19 steps to get cursor to 19. 11 steps to increment dataOffset.
-    // dataOffset = 11, dataCursor = 19.
     for (let i = 0; i < 30; i++) {
       navigator.moveDown();
     }
@@ -69,5 +64,38 @@ describe('Navigator Bug Reproduction', () => {
     assert.strictEqual(rowState.type, 'row-detail');
     assert.strictEqual(rowState.rowIndex, expectedRowIndex, `Row index should be ${expectedRowIndex}`);
     assert.strictEqual(rowState.row.name, expectedName, `Row name should be ${expectedName}`);
+  });
+
+  it('should handle jumping to bottom and moving up', () => {
+    navigator.init();
+    navigator.enter();
+
+    navigator.jumpToBottom();
+    let state = navigator.getState() as any;
+    assert.strictEqual(state.dataOffset + state.dataCursor, 99);
+
+    navigator.moveUp();
+    state = navigator.getState() as any;
+    assert.strictEqual(state.dataOffset + state.dataCursor, 98);
+
+    navigator.enter();
+    const rowState = navigator.getState() as any;
+    assert.strictEqual(rowState.row.name, 'Item 99');
+    assert.strictEqual(rowState.rowIndex, 98);
+  });
+
+  it('should handle jumping to top after scrolling', () => {
+    navigator.init();
+    navigator.enter();
+
+    for (let i = 0; i < 50; i++) navigator.moveDown();
+    navigator.jumpToTop();
+
+    let state = navigator.getState() as any;
+    assert.strictEqual(state.dataOffset, 0);
+    assert.strictEqual(state.dataCursor, 0);
+
+    const selectedRow = (navigator as any).getSelectedRow(state);
+    assert.strictEqual(selectedRow.name, 'Item 1');
   });
 });
