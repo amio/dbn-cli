@@ -5,6 +5,7 @@ import { SQLiteAdapter } from './adapter/sqlite.ts';
 import { Screen } from './ui/screen.ts';
 import { Renderer } from './ui/renderer.ts';
 import { Navigator } from './ui/navigator.ts';
+import { debounce } from './utils/debounce.ts';
 import type { KeyPress } from './types.ts';
 
 /**
@@ -73,8 +74,12 @@ export class DBPeek {
     this.setupInput();
 
     // Handle screen resize
-    this.screen.on('resize', () => {
+    const debouncedRender = debounce(() => {
       this.render();
+    }, 50);
+
+    this.screen.on('resize', () => {
+      debouncedRender();
     });
 
     // Initial render
