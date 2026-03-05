@@ -1,20 +1,26 @@
-import { test, expect } from '@microsoft/tui-test';
+import { test } from 'node:test';
+import { TuiRunner } from './tui-runner.ts';
 
-test('Main application smoke test', async ({ terminal }) => {
-  // Run the app with a sample db
-  // Increase terminal size to ensure content is visible
-  terminal.resize(100, 30);
-  // Path is relative to repo root
-  terminal.submit('node --experimental-strip-types bin/dbn.ts test.db');
+test('Main application smoke test', async () => {
+  const tui = new TuiRunner(100, 30);
 
-  // Should see the breadcrumb/title bar
-  await expect(terminal.getByText('test.db', { strict: false })).toBeVisible();
+  await tui.spawn('node', ['--experimental-strip-types', '--disable-warning=ExperimentalWarning', 'bin/dbn.ts', 'test.db']);
 
-  // Should see some tables (assuming test.db exists and has tables)
-  // We'll check for common UI elements
-  // Tables view usually shows "X/Y tables" in the right part of title bar
-  await expect(terminal.getByText('select', { strict: false })).toBeVisible();
+  try {
+    // Should see "quit" in the footer
+    await tui.expectVisible('quit');
 
-  // Press q to quit
-  terminal.write('q');
+    // Should see "users" table
+    await tui.expectVisible('users');
+
+    // Should see the breadcrumb/title bar
+    await tui.expectVisible('test.db');
+
+    // Press q to quit
+    tui.write('q');
+
+    await tui.waitExit();
+  } finally {
+    tui.kill();
+  }
 });
