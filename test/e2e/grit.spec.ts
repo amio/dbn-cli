@@ -1,22 +1,28 @@
-import { test, expect } from '@microsoft/tui-test';
+import { test } from 'node:test';
+import { TuiRunner } from './tui-runner.ts';
 
-test('Grit visual components', async ({ terminal }) => {
-  // Use node to run the test app
-  // Using experimental-strip-types for simplicity
-  terminal.submit('node --experimental-strip-types test/e2e/grit.fixture.ts');
+test('Grit visual components', async () => {
+  const tui = new TuiRunner(40, 10);
 
-  // Wait for the render
-  await expect(terminal.getByText('GRIT TEST APP')).toBeVisible();
+  await tui.spawn('node', ['--experimental-strip-types', 'test/e2e/grit.fixture.ts']);
 
-  // Check colors (Expected might be without # or case sensitive in found check)
-  await expect(terminal.getByText('GRIT TEST APP')).toHaveBgColor('ff5733');
+  try {
+    // Wait for the render
+    await tui.expectVisible('GRIT TEST APP');
 
-  // Transition line (Unicode block character)
-  await expect(terminal.getByText('▀▀▀▀', { strict: false })).toBeVisible();
-  // The transition line has foreground #FF5733 and background #3357FF
-  await expect(terminal.getByText('▀▀▀▀', { strict: false })).toHaveFgColor('ff5733');
-  await expect(terminal.getByText('▀▀▀▀', { strict: false })).toHaveBgColor('3357ff');
+    // Check colors
+    await tui.expectBgColor('GRIT TEST APP', 'ff5733');
 
-  // Persistence check
-  await expect(terminal.getByText('Reset')).toHaveBgColor('33ff57');
+    // Transition line (Unicode block character)
+    await tui.expectVisible('▀▀▀▀');
+
+    // The transition line has foreground #FF5733 and background #3357FF
+    await tui.expectFgColor('▀▀▀▀', 'ff5733');
+    await tui.expectBgColor('▀▀▀▀', '3357ff');
+
+    // Persistence check
+    await tui.expectBgColor('Reset', '33ff57');
+  } finally {
+    tui.kill();
+  }
 });
