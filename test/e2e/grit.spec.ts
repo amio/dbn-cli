@@ -4,7 +4,7 @@ import { TuiRunner } from './tui-runner.ts';
 test('Grit visual components', async () => {
   const tui = new TuiRunner(40, 10);
 
-  await tui.spawn('node', ['--experimental-strip-types', 'test/e2e/grit.fixture.ts']);
+  await tui.spawn(process.execPath, ['--experimental-strip-types', 'test/e2e/grit.fixture.ts']);
 
   try {
     // Wait for the render
