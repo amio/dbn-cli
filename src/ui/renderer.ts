@@ -10,6 +10,9 @@ import type { ViewState, TablesViewState, TableDetailViewState, SchemaViewState,
  */
 export class Renderer {
   private screen: Screen;
+  private lastLines: string[] = [];
+  private lastWidth: number = 0;
+  private lastHeight: number = 0;
 
   constructor(screen: Screen) {
     this.screen = screen;
@@ -38,9 +41,26 @@ export class Renderer {
     lines.push(Transition.draw(width, THEME.background, THEME.footerBg));
     lines.push(this.buildHelpBar(state, width));
 
-    // Clear and render
-    this.screen.clear();
-    this.screen.write(lines.join('\n'));
+    // Incremental Render Logic
+    if (width !== this.lastWidth || height !== this.lastHeight) {
+      // Screen resized: Full redraw from top, then clear remainder of screen
+      this.screen.moveCursor(1, 1);
+      this.screen.write(lines.join('\n'));
+      this.screen.write('\x1b[J'); // Clear remaining lines if new height is smaller
+    } else {
+      // Incremental update: Only write changed lines
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i] !== this.lastLines[i]) {
+          this.screen.moveCursor(i + 1, 1);
+          // Write line and clear to end of line to prevent ghosting
+          this.screen.write(lines[i] + '\x1b[K');
+        }
+      }
+    }
+
+    this.lastLines = lines;
+    this.lastWidth = width;
+    this.lastHeight = height;
   }
 
   private buildTitleBar(state: ViewState, dbPath: string, width: number): string {
