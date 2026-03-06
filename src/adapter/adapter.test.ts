@@ -2,9 +2,11 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
 import { DatabaseSync } from 'node:sqlite';
 import { existsSync, unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { SQLiteAdapter } from '../adapter/sqlite.ts';
 
-const TEST_DB = './test/test.db';
+const TEST_DB = join(tmpdir(), 'dbn-cli-test.db');
 
 /**
  * Set up test database
