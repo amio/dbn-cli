@@ -12,7 +12,6 @@
     "test": "node --test --experimental-strip-types src/**/*.test.ts src/*.test.ts",
     "test:watch": "node --test --watch --experimental-strip-types src/**/*.test.ts src/*.test.ts",
     "test:coverage": "node --test --experimental-test-coverage --experimental-strip-types src/**/*.test.ts src/*.test.ts",
-    "test:e2e": "node --test --experimental-strip-types test/e2e/*.spec.ts",
     "dev": "node bin/dbn.ts"
   },
   "keywords": [
@@ -33,9 +32,7 @@
     "src/"
   ],
   "devDependencies": {
-    "@types/node": "^24.10.9",
-    "@xterm/headless": "^6.0.0",
-    "node-pty": "^1.1.0"
+    "@types/node": "^24.10.9"
   },
   "dependencies": {
     "string-width": "^5.0.1"
