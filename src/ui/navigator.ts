@@ -242,6 +242,7 @@ export class Navigator {
         if (data.length > 0) {
           state.row = data[0];
           state.scrollOffset = 0;
+          this.syncParentState(state.rowIndex);
         }
       }
     }
@@ -260,8 +261,40 @@ export class Navigator {
         if (data.length > 0) {
           state.row = data[0];
           state.scrollOffset = 0;
+          this.syncParentState(state.rowIndex);
         }
       }
+    }
+  }
+
+  /**
+   * Helper to sync parent state with current row index
+   */
+  private syncParentState(rowIndex: number): void {
+    const parent = this.states[this.states.length - 2];
+    if (parent && parent.type === 'table-detail') {
+      const visibleRows = parent.visibleRows || 20;
+
+      // Try to keep the row within the visible window if possible
+      const currentPos = parent.dataOffset + parent.dataCursor;
+      if (rowIndex === currentPos) return;
+
+      let newOffset = parent.dataOffset;
+      let newCursor = rowIndex - newOffset;
+
+      if (newCursor < 0) {
+        newOffset = rowIndex;
+        newCursor = 0;
+      } else if (newCursor >= visibleRows) {
+        newOffset = rowIndex - (visibleRows - 1);
+        newCursor = visibleRows - 1;
+      }
+
+      parent.dataOffset = newOffset;
+      parent.dataCursor = newCursor;
+
+      // Ensure data is reloaded in parent buffer if needed
+      this.reloadState(parent);
     }
   }
 
@@ -375,10 +408,11 @@ export class Navigator {
       state.notice = `Row ${confirm.rowIndex + 1} deleted`;
       state.totalRows = this.adapter.getRowCount(state.tableName);
 
-      const maxOffset = Math.max(0, state.totalRows - state.visibleRows);
+      const visibleRows = state.visibleRows || 20;
+      const maxOffset = Math.max(0, state.totalRows - visibleRows);
       state.dataOffset = Math.min(state.dataOffset, maxOffset);
 
-      this.reload();
+      this.reload(true);
       if (state.dataCursor >= state.data.length) {
         state.dataCursor = Math.max(0, state.data.length - 1);
       }
@@ -404,13 +438,16 @@ export class Navigator {
         parent.notice = `Row ${confirm.rowIndex + 1} deleted`;
         parent.totalRows = this.adapter.getRowCount(parent.tableName);
 
+        // Sync parent cursor to the deleted row's position
+        this.syncParentState(confirm.rowIndex);
+
         const maxOffset = Math.max(0, parent.totalRows - parent.visibleRows);
         parent.dataOffset = Math.min(parent.dataOffset, maxOffset);
 
         parent.deleteConfirm = undefined;
         this.states.pop();
         this.currentState = parent;
-        this.reload();
+        this.reload(true);
 
         if (parent.dataCursor >= parent.data.length) {
           parent.dataCursor = Math.max(0, parent.data.length - 1);
@@ -456,8 +493,15 @@ export class Navigator {
    * Reload current view data
    */
   reload(force: boolean = false): void {
-    const state = this.currentState;
+    if (this.currentState) {
+      this.reloadState(this.currentState, force);
+    }
+  }
 
+  /**
+   * Reload specific view state data
+   */
+  private reloadState(state: ViewState, force: boolean = false): void {
     if (state && state.type === 'table-detail') {
       const bufferSize = 500;
       const currentPos = state.dataOffset + state.dataCursor;

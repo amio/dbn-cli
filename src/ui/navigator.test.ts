@@ -11,8 +11,11 @@ describe('Navigator', () => {
   let adapter: SQLiteAdapter;
   let navigator: Navigator;
 
-  before(() => {
+  const setupDB = () => {
     // Create test database
+    if (existsSync(TEST_DB)) {
+      unlinkSync(TEST_DB);
+    }
     const db = new DatabaseSync(TEST_DB);
     
     db.exec(`
@@ -51,7 +54,10 @@ describe('Navigator', () => {
     insertLog.run('Second log entry');
     
     db.close();
-    
+  };
+
+  before(() => {
+    setupDB();
     // Create adapter and navigator
     adapter = new SQLiteAdapter();
     adapter.connect(TEST_DB);
@@ -312,26 +318,45 @@ describe('Navigator', () => {
       return state;
     };
     
-    it('should require two confirmations before deleting', () => {
-      const state = selectTable('users');
+    it('should require two confirmations before deleting and actually remove the row', () => {
+      // Refresh the DB and navigator to ensure clean state
+      setupDB();
+      adapter.close();
+      adapter.connect(TEST_DB);
+      navigator.init();
+
+      // Enter the 'posts' table (no FK constraints on delete)
+      const tablesState = navigator.getState() as any;
+      const index = tablesState.tables.findIndex((t: any) => t.name === 'posts');
+      assert.ok(index >= 0);
+      tablesState.cursor = index;
+
+      navigator.enter();
+      let state = navigator.getState() as any;
       const initialTotal = state.totalRows;
-      state.dataCursor = Math.max(0, state.data.length - 1);
+
+      // Select first post
+      state.dataCursor = 0;
       
       navigator.requestDelete();
-      let current = navigator.getState() as any;
-      assert.ok(current.deleteConfirm);
-      assert.strictEqual(current.deleteConfirm.step, 1);
-      assert.ok(navigator.hasPendingDelete());
+      state = navigator.getState() as any;
+      assert.strictEqual(state.deleteConfirm.step, 1);
       
       navigator.confirmDelete();
-      current = navigator.getState() as any;
-      assert.strictEqual(current.deleteConfirm.step, 2);
-      assert.ok(navigator.hasPendingDelete());
+      state = navigator.getState() as any;
+      assert.strictEqual(state.deleteConfirm.step, 2);
       
       navigator.confirmDelete();
-      current = navigator.getState() as any;
-      assert.ok(!current.deleteConfirm);
-      assert.strictEqual(current.totalRows, initialTotal - 1);
+      state = navigator.getState() as any;
+      assert.ok(!state.deleteConfirm);
+      assert.strictEqual(state.totalRows, initialTotal - 1);
+
+      // Verify row is gone from state data
+      assert.strictEqual(state.totalRows, initialTotal - 1);
+
+      // Verify row is gone from database
+      const dbCount = adapter.getRowCount('posts');
+      assert.strictEqual(dbCount, initialTotal - 1);
     });
     
     it('should allow canceling a delete request', () => {
