@@ -52,10 +52,16 @@ export class Box {
 
 export class Transition {
   static draw(width: number, topBg: Color, bottomBg: Color): string {
+    if (topBg === bottomBg) {
+      return `${ANSI.bg(bottomBg)}${' '.repeat(width)}${ANSI.reset}`;
+    }
     return `${ANSI.fg(topBg)}${ANSI.bg(bottomBg)}${ANSI.blockUpper.repeat(width)}${ANSI.reset}`;
   }
 
   static drawInverted(width: number, topBg: Color, bottomBg: Color): string {
+    if (topBg === bottomBg) {
+      return `${ANSI.bg(topBg)}${' '.repeat(width)}${ANSI.reset}`;
+    }
     return `${ANSI.fg(bottomBg)}${ANSI.bg(topBg)}${ANSI.blockLower.repeat(width)}${ANSI.reset}`;
   }
 }
