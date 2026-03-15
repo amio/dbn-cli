@@ -5,11 +5,13 @@ export const ANSI = {
   inverse: '\x1b[7m',
   // TrueColor (24-bit) foreground
   fg: (hex: string) => {
+    if (!hex) return '\x1b[39m';
     const { r, g, b } = hexToRgb(hex);
     return `\x1b[38;2;${r};${g};${b}m`;
   },
   // TrueColor (24-bit) background
   bg: (hex: string) => {
+    if (!hex) return '\x1b[49m';
     const { r, g, b } = hexToRgb(hex);
     return `\x1b[48;2;${r};${g};${b}m`;
   },

@@ -17,7 +17,7 @@ export const THEME = {
   text: '#FFFFFF',
   textDim: '#8E8E93',
   headerBg: '#242426',
-  footerBg: '#1C1C1E',
+  footerBg: '',
   selectionBg: '#3A3A3C',
   success: '#34C759',
   warning: '#FF9500',
