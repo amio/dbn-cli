@@ -9,7 +9,7 @@ export const ANSI = GRIT_ANSI;
  * Modern color palette (OpenCode style)
  */
 export const THEME = {
-  background: '',
+  background: '#0D0D0D',
   surface: '#1A1A1A',
   primary: '#00A0FF', // Brighter Blue
   secondary: '#A259FF', // Brighter Purple

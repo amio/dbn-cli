@@ -5,8 +5,7 @@ import { THEME, UI } from '../ui/theme.ts';
 describe('Theme', () => {
   describe('THEME', () => {
     it('should have background colors', () => {
-      // background is empty string for transparency
-      assert.strictEqual(typeof THEME.background, 'string');
+      assert.ok(THEME.background);
       assert.ok(THEME.surface);
     });
 
