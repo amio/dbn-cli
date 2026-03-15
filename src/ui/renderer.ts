@@ -311,7 +311,7 @@ export class Renderer {
       case 'tables':
         helpItems = [
           { key: 'j/k', label: 'select' },
-          { key: 'g/G', label: 'top/bot' },
+          { key: 'g/G', label: 'first/last' },
           { key: 'Enter/l', label: 'open' },
           { key: 'i', label: 'info' },
           { key: 'q', label: 'quit' }
@@ -320,7 +320,7 @@ export class Renderer {
       case 'table-detail':
         helpItems = [
           { key: 'j/k', label: 'scroll' },
-          { key: 'g/G', label: 'top/bot' },
+          { key: 'g/G', label: 'first/last' },
           { key: 'Enter/l', label: 'row' },
           { key: 's', label: 'schema' },
           { key: 'h', label: 'back' },
@@ -330,7 +330,7 @@ export class Renderer {
       case 'schema-view':
         helpItems = [
           { key: 'j/k', label: 'scroll' },
-          { key: 'g/G', label: 'top/bot' },
+          { key: 'g/G', label: 'first/last' },
           { key: 's/h', label: 'back' },
           { key: 'q', label: 'quit' }
         ];
@@ -339,7 +339,6 @@ export class Renderer {
         helpItems = [
           { key: 'j/k', label: 'switch' },
           { key: '↑/↓', label: 'scroll' },
-          { key: 'g/G', label: 'top/bot' },
           { key: 'h', label: 'back' },
           { key: 'q', label: 'quit' }
         ];
