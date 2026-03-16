@@ -1,6 +1,7 @@
 import type { DatabaseAdapter } from '../adapter/base.ts';
 import type { ViewState, TablesViewState, TableDetailViewState, SchemaViewState, RowDetailViewState, HealthViewState, ColumnSchema } from '../types.ts';
 import { getVisibleWidth, formatValue } from '../utils/format.ts';
+import { copyToClipboard } from '../utils/clipboard.ts';
 
 /**
  * Navigation state manager
@@ -13,6 +14,31 @@ export class Navigator {
 
   constructor(adapter: DatabaseAdapter) {
     this.adapter = adapter;
+  }
+
+  /**
+   * Copy current row to clipboard as JSON
+   * @param onUpdate - Callback called after notice is cleared to trigger a re-render
+   */
+  async copyToClipboard(onUpdate?: () => void): Promise<void> {
+    const state = this.currentState;
+    if (state && state.type === 'row-detail') {
+      const json = JSON.stringify(state.row, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2);
+      const success = await copyToClipboard(json);
+      if (success) {
+        state.notice = 'Copied to clipboard';
+      } else {
+        state.notice = 'Failed to copy to clipboard';
+      }
+
+      // Clear notice after 3 seconds
+      setTimeout(() => {
+        if (state.notice === 'Copied to clipboard' || state.notice === 'Failed to copy to clipboard') {
+          state.notice = undefined;
+          if (onUpdate) onUpdate();
+        }
+      }, 3000);
+    }
   }
 
   /**
