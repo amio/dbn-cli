@@ -154,6 +154,21 @@ export function wrapText(text: string, maxWidth: number): string[] {
       continue;
     }
 
+    // Fast path for ASCII-only strings (no ANSI, no CJK/Emoji)
+    // Most JSON and technical data falls here.
+    // We include \t \r \n (though split by \n already) and space.
+    if (maxWidth > 0 && /^[\x20-\x7E\t\r\n]*$/.test(sourceLine)) {
+      if (sourceLine.length <= maxWidth) {
+        lines.push(sourceLine);
+      } else {
+        for (let i = 0; i < sourceLine.length; i += maxWidth) {
+          lines.push(sourceLine.slice(i, i + maxWidth));
+        }
+      }
+      continue;
+    }
+
+    // Slow path for complex strings (CJK, Emoji, ANSI)
     let currentLine = '';
     let currentWidth = 0;
 
