@@ -125,6 +125,9 @@ export interface RowDetailViewState extends BaseViewState {
   scrollOffset: number;
   totalLines: number;
   visibleHeight: number;
+  cachedLines?: string[];
+  cachedWidth?: number;
+  cachedRowIndex?: number;
   deleteConfirm?: DeleteConfirmationState;
   notice?: string;
 }

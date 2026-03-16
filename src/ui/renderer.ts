@@ -236,10 +236,17 @@ export class Renderer {
   }
 
   private renderRowDetail(state: RowDetailViewState, height: number, width: number): string[] {
-    const allLines: string[] = [];
-    const { row, schema } = state;
     const innerWidth = width - 2;
     const box = new Box({ width, padding: 1, background: THEME.background });
+
+    // Check cache
+    if (state.cachedLines && state.cachedWidth === width && state.cachedRowIndex === state.rowIndex) {
+      state.visibleHeight = height;
+      return state.cachedLines.slice(state.scrollOffset, state.scrollOffset + height);
+    }
+
+    const allLines: string[] = [];
+    const { row, schema } = state;
 
     // Calculate max label width for alignment
     let maxLabelWidth = 0;
@@ -278,6 +285,9 @@ export class Renderer {
       }
     });
 
+    state.cachedLines = allLines;
+    state.cachedWidth = width;
+    state.cachedRowIndex = state.rowIndex;
     state.totalLines = allLines.length;
     state.visibleHeight = height;
 
