@@ -294,6 +294,18 @@ describe('Navigator', () => {
       const state = navigator.getState();
       assert.strictEqual(state.type, 'table-detail');
     });
+
+    it('should set notice when copying to clipboard', async () => {
+      navigator.init();
+      navigator.enter();
+      navigator.enter();
+
+      const state = navigator.getState() as any;
+      assert.strictEqual(state.type, 'row-detail');
+
+      await navigator.copyToClipboard();
+      assert.ok(state.notice === 'Copied to clipboard' || state.notice === 'Failed to copy to clipboard');
+    });
   });
 
   describe('delete flow', () => {

@@ -198,6 +198,12 @@ export class DBPeek {
         this.render();
         break;
 
+      case 'c':
+        if (this.navigator.getState().type === 'row-detail') {
+          this.navigator.copyToClipboard(() => this.render()).then(() => this.render());
+        }
+        break;
+
       case 'backspace': {
         const deleteState = this.navigator.getState();
         if (deleteState.type === 'table-detail' || deleteState.type === 'row-detail') {

@@ -339,6 +339,7 @@ export class Renderer {
         helpItems = [
           { key: 'j/k', label: 'switch' },
           { key: '↑/↓', label: 'scroll' },
+          { key: 'c', label: 'copy' },
           { key: 'h', label: 'back' },
           { key: 'q', label: 'quit' }
         ];
