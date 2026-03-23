@@ -7,6 +7,8 @@ A lightweight terminal SQLite browser with an ncdu-style interface.
 - **Minimal dependencies** - Uses Node.js 24+ built-in `node:sqlite` module
 - **Full-screen TUI** - ncdu-inspired keyboard navigation
 
+[![asciicast](https://asciinema.org/a/861358.svg)](https://asciinema.org/a/861358)
+
 ## Installation
 
 ```bash
