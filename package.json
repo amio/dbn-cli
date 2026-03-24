@@ -1,6 +1,6 @@
 {
   "name": "dbn-cli",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "A lightweight terminal-based database browser",
   "repository": "https://github.com/amio/dbn-cli",
   "type": "module",
