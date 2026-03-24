@@ -35,6 +35,6 @@
     "@types/node": "^24.10.9"
   },
   "dependencies": {
-    "string-width": "^5.0.1"
+    "string-width": "^8.2.0"
   }
 }
